@@ -287,7 +287,10 @@ def check_i18n(rep, root, md_files):
                           want.relative_to(root).as_posix() + " olustur")
 
 
-LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
+# ([^)\s]*) : BOS parantez de yakalanir. Upstream'de uc tane
+# "[metin]()" vardi; eski desen en az bir karakter istedigi icin
+# bunlari hic gormuyordu.
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]*)\)")
 
 
 def check_links(rep, root, md_files):
@@ -295,6 +298,11 @@ def check_links(rep, root, md_files):
         prose, _ = split_code_blocks(read(f))
         for n, line in prose:
             for target in LINK.findall(line):
+                if not target.strip():
+                    rep.error("links", f.relative_to(root), n,
+                              "bos baglanti hedefi: [...]()",
+                              "gercek bir URL ver ya da baglantiyi kaldir")
+                    continue
                 if target.startswith(("http://", "https://", "#", "mailto:", "//")):
                     continue
                 clean = target.split("#")[0].split("?")[0]

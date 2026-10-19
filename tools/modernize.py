@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import miniyaml  # noqa: E402
 
 PLATFORM = Path(__file__).resolve().parents[1]
-STEPS = ("compose-cli", "compose-version", "images", "text")
+STEPS = ("compose-cli", "compose-version", "images", "text", "container-names")
 
 SKIP_DIRS = {".git", "node_modules", ".vscode", "obj", "bin", "img"}
 TEXT_EXT = {".md", ".yml", ".yaml", ".json", ".conf", ".env", ".cs", ".java",
@@ -151,6 +151,35 @@ def apply_images(text, images, intentional):
     return text, total
 
 
+# Compose v1 container adi: <proje>_<servis>_<n>. Servis adi tire icerebilir
+# (fulfilment-web gibi), bu yuzden ortadaki kismi acgozlu yakalayip ilk ve son
+# alt cizgiyi tireye ceviriyoruz.
+V1_CONTAINER = re.compile(r"\b([a-z0-9]+)_([a-z0-9][a-z0-9-]*)_([0-9]+)\b")
+
+
+def apply_container_names(text, path: Path):
+    """Compose v1 container adlarini v2 bicimine cevirir.
+
+    Compose v2, container adlarini alt cizgi yerine TIRE ile uretiyor:
+    'courselabs_elasticsearch_1' -> 'courselabs-elasticsearch-1'.
+    Eski adi kullanan 'docker logs/exec/inspect' komutlari guncel Compose ile
+    "no such container" hatasi veriyor - lab ortasinda sessizce patliyor.
+
+    Yalnizca 'docker' gecen satirlarda degisiklik yapiyoruz; baska baglamlarda
+    alt cizgili isimler (ornegin metrik adlari: fulfilment_requests_total)
+    bilincli olarak korunuyor.
+    """
+    if path.suffix.lower() != ".md":
+        return text, 0
+    out, n = [], 0
+    for line in text.split("\n"):
+        if "docker " in line:
+            line, k = V1_CONTAINER.subn(r"\1-\2-\3", line)
+            n += k
+        out.append(line)
+    return "\n".join(out), n
+
+
 def apply_text(text, rules):
     total = Counter()
     for old in sorted(rules, key=len, reverse=True):
@@ -220,6 +249,9 @@ def main():
             text, det = apply_text(text, rules["text"])
             text_detail.update(det)
             local["text"] += sum(det.values())
+        if "container-names" in only:
+            text, n = apply_container_names(text, path)
+            local["container-names"] += n
 
         if text != original:
             counts.update(local)
