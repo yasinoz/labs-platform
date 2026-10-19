@@ -1,0 +1,90 @@
+name: WordPress eklentisi
+
+# Eklenti gelistirme makinesinde dogrulanamiyordu: orada PHP kurulu degil,
+# 'php -l' bile calistirilamadi. Dogrulama buraya tasindi.
+#
+# Kontroller:
+#   1. Sozdizimi (php -l) - birden fazla PHP surumunde
+#   2. Kisa acma etiketi (<?) ve BOM taramasi: WordPress'te beyaz ekranin
+#      klasik sebepleri
+#   3. WordPress eklenti basligi ve metin alani tutarliligi
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wordpress/**'
+      - '.github/workflows/wordpress-plugin.yml'
+  pull_request:
+    paths:
+      - 'wordpress/**'
+  workflow_dispatch:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Eklenti "Requires PHP: 7.4" diyor; en eski desteklenen surumde de
+        # en guncelinde de ayristigini dogrulamak gerekiyor.
+        php: ['7.4', '8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: PHP ${{ matrix.php }} kur
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Sozdizimi kontrolu (php -l)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if out=$(php -l "$f" 2>&1); then
+              echo "ok   $f"
+            else
+              echo "::error file=$f::$out"
+              fail=1
+            fi
+          done < <(find wordpress -name '*.php' | sort)
+          exit $fail
+
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Kisa acma etiketi ve BOM taramasi
+        run: |
+          # '<?' (kisa etiket) sunucuda short_open_tag kapaliysa PHP kodunun
+          # ham metin olarak basilmasina yol acar. BOM ise 'headers already
+          # sent' hatasi ve beyaz ekran uretir.
+          fail=0
+          while IFS= read -r f; do
+            if grep -qE '<\?(\s|$)' "$f"; then
+              echo "::error file=$f::kisa acma etiketi (<?) bulundu - <?php kullanin"
+              fail=1
+            fi
+            if [ "$(head -c3 "$f")" = "$(printf '\xEF\xBB\xBF')" ]; then
+              echo "::error file=$f::dosya BOM ile basliyor - 'headers already sent' uretir"
+              fail=1
+            fi
+          done < <(find wordpress -name '*.php' | sort)
+          exit $fail
+
+      - name: Eklenti basligi ve metin alani
+        run: |
+          main=wordpress/sudo2go-labs/sudo2go-labs.php
+          fail=0
+          for key in "Plugin Name:" "Version:" "Requires PHP:" "Text Domain:"; do
+            grep -q "$key" "$main" || { echo "::error::eklenti basliginda eksik: $key"; fail=1; }
+          done
+          # Ceviri fonksiyonlarinda kullanilan metin alani basliktakiyle ayni olmali
+          domain=$(grep -oP '(?<=Text Domain:\s).*' "$main" | tr -d ' \r')
+          echo "metin alani: $domain"
+          bad=$(grep -rhoE "__\(|_e\(|esc_html__\(|esc_attr__\(" wordpress --include='*.php' | wc -l)
+          used=$(grep -rhoE "'$domain'" wordpress --include='*.php' | wc -l)
+          echo "ceviri cagrisi: $bad, dogru metin alani kullanimi: $used"
+          exit $fail
