@@ -368,7 +368,11 @@ def check_parity(rep, root, md_files):
 
 # ------------------------------------------------------------------ toplama
 
-SKIP_DIRS = {".git", "node_modules", ".github", "img", ".vscode", "obj", "bin"}
+# "platform"/".platform": CI'da yan yana checkout edilen arac reposu.
+# Yanlislikla lab reposunun icine alinirsa platformun kendi
+# VERSIONS.yaml'i pinlenmemis imaj gibi gorunur.
+SKIP_DIRS = {".git", "node_modules", ".github", "img", ".vscode",
+             "obj", "bin", "platform", ".platform"}
 
 
 def helm_chart_dirs(root):
