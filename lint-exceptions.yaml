@@ -1,0 +1,51 @@
+# Lint istisnalari.
+#
+# Her istisnanin bir SEBEBI var. Sebep yazilmadan istisna eklenmez - aksi
+# halde bu dosya zamanla "lint'i sustur" listesine doner ve arac ise yaramaz
+# hale gelir.
+
+# ---------------------------------------------------------------- compose
+# Bu dosyalar docker-compose v1'den BAHSEDIYOR, onu KULLANMIYOR: gocun
+# kendisini anlatan dokumanlar ve ogrenciye "v1 kullanmayin" diyen uyarilar.
+compose_v1_mentions:
+  - ATTRIBUTION.md
+  - MODERNIZASYON.md
+  - setup/README.md
+  - setup/README.tr.md
+  - CONTRIBUTING.md
+
+# ---------------------------------------------------------------- pinler
+# Pinlenmemis olmasi kabul edilen imaj referanslari.
+allow_unpinned:
+  - ref: scratch
+    reason: |
+      'scratch' bir imaj degil, bos taban. Etiketi yok, olamaz.
+      (Dockerfile referansi: FROM scratch)
+
+  - path: labs/images/curl/Dockerfile
+    ref: alpine
+    reason: |
+      KASITLI OGRETIM NOKTASI. Bu dosya bilincli olarak surum belirtmiyor;
+      hemen yanindaki Dockerfile.v2 "specifying an exact version makes the
+      build repeatable" diyerek pinli halini gosteriyor. Lint burayi
+      duzeltirse labin anlatmak istedigi sey kaybolur.
+
+  - ref_prefix: diamol/
+    reason: |
+      diamol/* imajlari da (Learn Docker in a Month of Lunches ornekleri)
+      Docker Hub'da yalnizca etiketsiz/latest yayinlaniyor. kiamol/* ile
+      ayni durum.
+
+  - ref_prefix: kiamol/
+    reason: |
+      kiamol/* imajlari Docker Hub'da YALNIZCA 'latest' etiketiyle
+      yayinlaniyor (dogrulandi: ch14-image-of-the-day, ch14-image-gallery,
+      ch14-access-log, ch03-sleep, ch05-pi). Pinlenecek bir surum etiketi
+      yok. Kitabin (Learn Kubernetes in a Month of Lunches) ornek
+      uygulamalari; kendi kopyamizi uretmek bu lablarin kapsami disinda.
+
+# ---------------------------------------------------------------- frontmatter
+# Ucuncu parti / uretilmis dosyalar: bizim dokumanlarimiz degil.
+skip_paths:
+  - labs/compose-build/rng/src/Numbers.Web/wwwroot
+  - node_modules

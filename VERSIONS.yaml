@@ -1,0 +1,197 @@
+# sudo2go labs - merkezi surum matrisi (single source of truth)
+#
+# Tum lab repolarindaki compose/manifest/Dockerfile dosyalari bu matrise gore
+# dogrulanir: tools/check-versions.py
+#
+# Dogrulama tarihi: 2026-10-19 (canli registry/release API'lerinden okundu)
+# Guncelleme: tools/refresh-versions.py calistir, cikan farki gozden gecir.
+
+meta:
+  verified: "2026-10-19"
+  policy: |
+    1. Her imaj TAM surume pinlenir. 'latest' yasak (ders tekrar edilebilir olmali).
+    2. Ogrenci makinesinde calisacak her imaj linux/amd64 + linux/arm64 olmali
+       (Apple Silicon ogrenciler icin zorunlu).
+    3. Kasitli olarak ESKI birakilan imajlar 'intentionally_vulnerable' altinda
+       listelenir - guvenlik taramasi lablarinin hedefi olduklari icin
+       guncellenmezler.
+
+# ---------------------------------------------------------------- CI/CD
+cicd:
+  jenkins:
+    image: jenkins/jenkins
+    tag: 2.580.1-lts-jdk21
+    was: courselabs/jenkins:2.319.1
+    note: |
+      Blue Ocean eklentisi upstream'de kullaniliyordu; artik bakimsiz ve
+      Jenkins'in kendi Pipeline arayuzu onun yerini aldi. Lab adimlari
+      yerlesik "Pipeline" + "Stage View" arayuzune tasindi.
+  git_server:
+    image: gitea/gitea
+    tag: 28.2.0
+    was: courselabs/gogs:0.12.3
+    note: Gogs fiilen bakimsiz; Gitea aktif catal ve API uyumlu.
+  sonarqube:
+    image: sonarqube
+    tag: 26.10.0.133078-community
+    was: courselabs/sonarqube:9.2.1
+  trivy:
+    image: aquasec/trivy
+    tag: 0.76.0
+    was: aquasec/trivy:0.21.1
+    note: |
+      KRITIK: Trivy 0.23'ten itibaren guvenlik acigi veritabani v2 semasina
+      gecti ve GHCR uzerinden OCI artifact olarak dagitiliyor. 0.21.1 artik
+      veritabanini INDIREMIYOR - tarama labi upstream'de tamamen bozuk.
+
+# ---------------------------------------------------------------- Gozlemlenebilirlik
+observability:
+  prometheus:
+    image: prom/prometheus
+    tag: v3.15.0
+    was: courselabs/prometheus:v2.28.1
+    note: |
+      v3'te --web.enable-lifecycle hala gerekli (config reload icin),
+      ancak arayuz tamamen yenilendi; lab ekran yonlendirmeleri guncellendi.
+  node_exporter:
+    image: prom/node-exporter
+    tag: v1.9.1
+    was: courselabs/node-exporter:latest
+  grafana:
+    image: grafana/grafana
+    tag: 13.2.4
+    was: courselabs/grafana:8.0.5
+    note: |
+      Grafana 8 -> 13 arasinda gezinme tamamen degisti (Explore, Dashboards,
+      Connections menuleri). Upstream lab adimlari ekranla hic ortusmuyordu -
+      ogrencinin "anlamadim" dedigi yer buydu.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch
+    tag: 9.5.5
+    was: courselabs/elasticsearch:7.10
+    note: |
+      8.x'ten itibaren guvenlik (TLS + kimlik dogrulama) VARSAYILAN olarak
+      acik. Lab ortaminda kapatmak icin xpack.security.enabled=false sart;
+      aksi halde curl cagrilari 401 doner.
+  kibana:
+    image: docker.elastic.co/kibana/kibana
+    tag: 9.5.5
+    was: courselabs/kibana:7.10
+  logstash:
+    image: docker.elastic.co/logstash/logstash
+    tag: 9.5.5
+    was: courselabs/logstash:7.10
+  jaeger:
+    image: jaegertracing/jaeger
+    tag: 2.22.0
+    was: courselabs/jaeger:1.24
+    note: |
+      Jaeger v2 yapilandirmasi v1'den cok farkli: all-in-one artik OTLP'yi
+      varsayilan olarak 4317/4318'de dinliyor, eski 14268 Thrift ucu
+      varsayilan kapali. Uygulama tarafi OTLP'ye tasindi.
+
+# ---------------------------------------------------------------- Kubernetes
+kubernetes:
+  argocd:
+    manifest: https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
+    version: v3.5.5
+    was: v2.1.2
+  gatekeeper:
+    manifest: https://raw.githubusercontent.com/open-policy-agent/gatekeeper/v3.23.1/deploy/gatekeeper.yaml
+    version: v3.23.1
+    was: v3.5.2
+    note: |
+      v3.5 manifestleri admissionregistration.k8s.io/v1beta1 kullaniyordu;
+      bu API Kubernetes 1.22'de KALDIRILDI. Guncel kume uzerinde upstream
+      lab hic kurulmuyor.
+  kubectl_min: "1.30"
+  cluster_options:
+    - name: Docker Desktop Kubernetes
+      note: Tek dugum, en kolay; Settings > Kubernetes > Enable
+    - name: k3d
+      version: v5.8.3
+    - name: kind
+      version: v0.33.0
+    - name: minikube
+      version: v1.39.0
+
+# ---------------------------------------------------------------- Dil/runtime temelleri
+runtimes:
+  java_jre:
+    image: eclipse-temurin
+    tag: 25-jre
+    was: openjdk:11-jre-slim
+    note: Docker Hub'daki 'openjdk' resmi imaji KULLANIMDAN KALDIRILDI.
+  java_jdk:
+    image: eclipse-temurin
+    tag: 25-jdk
+    was: openjdk:11-jdk-slim
+  maven:
+    image: maven
+    tag: 3.10-eclipse-temurin-25-noble
+    was: maven:3.6.3-jdk-11
+  dotnet_sdk:
+    image: mcr.microsoft.com/dotnet/sdk
+    tag: "10.0"
+    was: mcr.microsoft.com/dotnet/sdk:6.0
+    note: .NET 6 destegi Kasim 2024'te bitti.
+  dotnet_aspnet:
+    image: mcr.microsoft.com/dotnet/aspnet
+    tag: "10.0"
+    was: mcr.microsoft.com/dotnet/aspnet:6.0
+  dotnet_runtime:
+    image: mcr.microsoft.com/dotnet/runtime
+    tag: "10.0"
+    was: mcr.microsoft.com/dotnet/runtime:6.0
+  golang:
+    image: golang
+    tag: 1.27.2-alpine
+    was: golang:1.16.4-alpine
+  ubuntu:
+    image: ubuntu
+    tag: "26.04"
+    note: LTS. Upstream'de pinlenmemisti ('FROM ubuntu').
+  alpine:
+    image: alpine
+    tag: "3.24"
+    was: alpine:3.13
+  nginx:
+    image: nginx
+    tag: 1.31.7-alpine
+  redis:
+    image: redis
+    tag: 8.10.2-alpine
+    was: redis:6.2.4-alpine
+
+# ---------------------------------------------------------------- Kendi imajlarimiz
+# Ozel yapilandirma gereken bilesenler (eklentili Jenkins, tohumlanmis Git
+# sunucusu vb.) GHCR'da bizim namespace'imizde yayinlanir. Boylece Docker Hub
+# anonim cekme limiti siniftaki 20 ogrenciyi kilitlemez.
+own_images:
+  registry: ghcr.io/yasinoz
+  images:
+    labs-jenkins:
+      source: images/jenkins
+      base: jenkins/jenkins:2.580.1-lts-jdk21
+      tag: "1.0.0"
+    labs-gitea:
+      source: images/gitea
+      base: gitea/gitea:28.2.0
+      tag: "1.0.0"
+
+# ---------------------------------------------------------------- Kasitli eski imajlar
+# BUNLARI GUNCELLEMEYIN. Tarama/analiz lablari bu imajlardaki gercek CVE'leri
+# bulmak uzere kurgulandi; guncellenirse lab anlamsiz hale gelir.
+intentionally_vulnerable:
+  - image: nginx:1.7
+    used_by: [labs/scanning]
+    reason: Trivy taramasinda yuzlerce CVE gostermek icin
+  - image: alpine:3.8
+    used_by: [labs/scanning, labs/golden-images]
+    reason: Temel katman aciklarini gostermek icin
+  - image: python:3.4-alpine
+    used_by: [labs/scanning]
+    reason: CVE-2019-15903 dahil kritik bulgular icin
+  - image: openjdk:8-jre-alpine
+    used_by: [labs/golden-images]
+    reason: Eski temel imaj / altin imaj kiyaslamasi icin
