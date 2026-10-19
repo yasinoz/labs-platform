@@ -309,12 +309,30 @@ REQUIRED_FM = ("title", "lang", "slug", "section", "order", "status")
 VALID_STATUS = ("upstream", "needs-review", "updated")
 
 
+def frontmatter_required(rel):
+    """Frontmatter yalnizca sitenin yayinladigi dokumanlarda zorunlu.
+
+    Kapsam: labs/**/README*.md, kok index*.md, setup/README*.md
+    Kapsam disi: hackathon projeleri, setup-lab (sinif VM kurulumu), repo
+    meta dosyalari. Bunlar manifest.json'da yok, dolayisiyla sitede de yok.
+    """
+    if rel.startswith("labs/"):
+        return True
+    if "/" not in rel and rel.split(".")[0] == "index":
+        return True
+    if rel.startswith("setup/") and rel.split("/")[-1].split(".")[0] == "README":
+        return True
+    return False
+
+
 def check_frontmatter(rep, root, md_files):
     for f in md_files:
         stem = f.name.split(".")[0]
         if stem not in ("README", "index"):
             continue
         if f.parent == root and stem == "README":
+            continue
+        if not frontmatter_required(f.relative_to(root).as_posix()):
             continue
         fm, _ = parse_frontmatter(read(f))
         rel = f.relative_to(root)
