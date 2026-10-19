@@ -16,17 +16,68 @@ ekranındaki tek düğmeyle hemen).
 
 ### 1. Eklentiyi yükleyin
 
-`sudo2go-labs` klasörünü ZIP'leyip WordPress'e yükleyin:
+ZIP dosyası `_platform/wordpress/sudo2go-labs.zip` olarak hazır. Yeniden
+üretmek gerekirse:
 
 ```bash
-cd _platform/wordpress && zip -r sudo2go-labs.zip sudo2go-labs
+python _platform/wordpress/make-zip.py
 ```
 
-WordPress yönetimi → **Eklentiler → Yeni ekle → Eklenti yükle** → ZIP'i seçin
-→ **Etkinleştir**.
+> `zip` komutu yerine bu betik kullanılıyor: Windows PowerShell'in
+> `Compress-Archive` komutu ZIP girdilerini ters bölü ile yazıyor ve Linux
+> sunucuda bu, adında ters bölü olan tek bir dosyaya dönüşüp eklentiyi
+> sessizce bozuyor. Betik düz bölü kullandığını doğrulayıp çıkıyor.
 
-> FTP/SSH erişiminiz varsa klasörü doğrudan `wp-content/plugins/` içine
-> kopyalayabilirsiniz.
+**En kısa yol — WordPress yönetim paneli:**
+
+WordPress yönetimi → **Eklentiler → Yeni ekle → Eklenti yükle** → ZIP'i seçin
+→ **Şimdi yükle** → **Etkinleştir**.
+
+<details>
+  <summary>Alternatif: cPanel Dosya Yöneticisi</summary>
+
+WordPress paneline giremiyorsanız veya yükleme boyut sınırına takılıyorsanız:
+
+1. cPanel → **Dosya Yöneticisi** (File Manager)
+2. Sitenin kök dizinine gidin (genellikle `public_html`), sonra
+   `wp-content/plugins/`
+3. **Yükle** (Upload) → `sudo2go-labs.zip`
+4. Yükleme bitince dosyaya sağ tıklayıp **Ayıkla** (Extract)
+5. ZIP'i silin — `wp-content/plugins/sudo2go-labs/` klasörü kalmalı
+6. WordPress yönetimi → **Eklentiler** → `sudo2go Labs` satırında
+   **Etkinleştir**
+
+Ayıklama sonrası klasör yapısı şöyle olmalı:
+
+```
+wp-content/plugins/sudo2go-labs/
+├── sudo2go-labs.php
+├── assets/
+│   ├── labs.css
+│   └── labs.js
+└── includes/
+    ├── class-client.php
+    └── class-markdown.php
+```
+
+`sudo2go-labs/sudo2go-labs/` gibi iç içe bir klasör oluştuysa bir seviye
+yukarı taşıyın; WordPress eklentiyi aksi halde görmez.
+
+</details>
+
+<details>
+  <summary>Alternatif: WP-CLI (cPanel Terminal veya SSH)</summary>
+
+```bash
+cd ~/public_html
+wp plugin install /home/yasinoz/sudo2go-labs.zip --activate
+wp option patch update sudo2go_labs_options page_slug labs
+wp rewrite flush
+```
+
+Yol ve kullanıcı adı sizin hesabınıza göre değişir.
+
+</details>
 
 ### 2. Lab sayfasını oluşturun
 
