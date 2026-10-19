@@ -1,0 +1,93 @@
+# Mekanik yeniden yazma kurallari - tools/modernize.py bunlari uygular.
+#
+# VERSIONS.yaml 'was:' alanlari zaten otomatik kural uretir. Bu dosya onlarin
+# UZERINE, upstream'de gecen surum VARYANTLARINI ekler (slim-buster, alpine,
+# nokta surumler...). Boylece kod degil veri duzenleyerek genisletilebilir.
+#
+# Kural: sol taraf TAM imaj referansi olmali. Desen/jokeri yok - yanlis
+# yeniden yazma riski almiyoruz, elde kalanlari insan gozden geciriyor.
+
+images:
+  # --- Java: Docker Hub 'openjdk' resmi imaji kullanimdan kaldirildi -------
+  "openjdk:11-jre-slim": "eclipse-temurin:25-jre"
+  "openjdk:11-jdk-slim": "eclipse-temurin:25-jdk"
+  "openjdk:11.0.12-jre-slim-buster": "eclipse-temurin:25-jre"
+  "openjdk:11.0.13-jre-slim-buster": "eclipse-temurin:25-jre"
+  "openjdk:11.0.13-jdk-slim-buster": "eclipse-temurin:25-jdk"
+  "java:8-jdk": "eclipse-temurin:25-jdk"
+  "maven:3.6.3-jdk-11": "maven:3.10-eclipse-temurin-25-noble"
+
+  # --- .NET: 6.0 destegi Kasim 2024'te bitti ------------------------------
+  "mcr.microsoft.com/dotnet/sdk:6.0": "mcr.microsoft.com/dotnet/sdk:10.0"
+  "mcr.microsoft.com/dotnet/sdk:6.0-alpine": "mcr.microsoft.com/dotnet/sdk:10.0-alpine"
+  "mcr.microsoft.com/dotnet/aspnet:6.0": "mcr.microsoft.com/dotnet/aspnet:10.0"
+  "mcr.microsoft.com/dotnet/aspnet:6.0-alpine": "mcr.microsoft.com/dotnet/aspnet:10.0-alpine"
+  "mcr.microsoft.com/dotnet/runtime:6.0": "mcr.microsoft.com/dotnet/runtime:10.0"
+  "mcr.microsoft.com/dotnet/runtime:6.0-alpine": "mcr.microsoft.com/dotnet/runtime:10.0-alpine"
+
+  # --- Diger diller / temel imajlar ---------------------------------------
+  "golang:1.16.4-alpine": "golang:1.27.2-alpine"
+  "alpine:3.13": "alpine:3.24"
+  "alpine:3.14": "alpine:3.24"
+  "alpine:3.8": "alpine:3.8"
+  "golang:1.15.14-alpine3.14": "golang:1.27.2-alpine"
+  "golang:1.16.3-alpine3.12": "golang:1.27.2-alpine"
+  "golang:1.17.1-alpine3.14": "golang:1.27.2-alpine"
+  "redis:6.2.4-alpine": "redis:8.10.2-alpine"
+  "nginx:1.21.4-alpine": "nginx:1.31.7-alpine"
+
+  # --- Lab altyapisi: courselabs imajlari -> resmi imaj / kendi GHCR ------
+  "courselabs/jenkins:2.319.1": "ghcr.io/yasinoz/labs-jenkins:1.0.0"
+  "courselabs/gogs:0.12.3": "ghcr.io/yasinoz/labs-gitea:1.0.0"
+  "courselabs/sonarqube:9.2.1": "sonarqube:26.10.0.133078-community"
+  "courselabs/prometheus:v2.28.1": "prom/prometheus:v3.15.0"
+  "courselabs/node-exporter": "prom/node-exporter:v1.9.1"
+  "courselabs/node-exporter:latest": "prom/node-exporter:v1.9.1"
+  "courselabs/grafana:8.0.5": "grafana/grafana:13.2.4"
+  "courselabs/elasticsearch:7.10": "docker.elastic.co/elasticsearch/elasticsearch:9.5.5"
+  "courselabs/kibana:7.10": "docker.elastic.co/kibana/kibana:9.5.5"
+  "courselabs/logstash:7.10": "docker.elastic.co/logstash/logstash:9.5.5"
+  "courselabs/jaeger:1.24": "jaegertracing/jaeger:2.22.0"
+  "aquasec/trivy:0.21.1": "aquasec/trivy:0.76.0"
+  "sixeyed/whoami:21.04": "sixeyed/whoami:24.07"
+
+  # Ornek uygulama imajlari: 'latest' yerine yayinlanmis surum etiketi var
+  "courselabs/fulfilment-api": "courselabs/fulfilment-api:25.03"
+  "courselabs/fulfilment-web": "courselabs/fulfilment-web:25.03"
+  "courselabs/fulfilment-processor": "courselabs/fulfilment-processor:25.03"
+  "courselabs/fulfilment-authz": "courselabs/fulfilment-authz:25.03"
+  "quay.io/argoproj/argocd:v2.1.2": "quay.io/argoproj/argocd:v3.5.5"
+  "openpolicyagent/gatekeeper:v3.5.2": "openpolicyagent/gatekeeper:v3.23.1"
+  "ghcr.io/dexidp/dex:v2.27.0": "ghcr.io/dexidp/dex:v2.44.0"
+
+# Markdown icindeki metin degisiklikleri. Yalnizca TAM dizgi eslesmesi.
+text:
+  # Compose v1 CLI -> v2. Dosya adlari (docker-compose.yml) korunur;
+  # modernize.py bunu regex ile ayristirir, buradaki kurallar ek durumlar icin.
+  "docker-compose version": "docker compose version"
+  "docker-compose --version": "docker compose version"
+
+  # Trivy dokumantasyon baglantilari surum numarasi iceriyor
+  "https://aquasecurity.github.io/trivy/v0.21.1/": "https://trivy.dev/latest/docs/"
+  "aquasecurity.github.io/trivy/v0.21.1": "trivy.dev/latest/docs"
+
+  # ArgoCD / Gatekeeper kurulum manifest baglantilari
+  "argo-cd/v2.1.2/manifests/install.yaml": "argo-cd/v3.5.5/manifests/install.yaml"
+  "gatekeeper/v3.5.2/deploy/gatekeeper.yaml": "gatekeeper/v3.23.1/deploy/gatekeeper.yaml"
+
+# Bu dosyalar mekanik yeniden yazmadan MUAF. Tarama/analiz lablarinin hedefi
+# olduklari icin kasitli olarak eski kalmalari gerekiyor.
+exempt_paths:
+  - labs/scanning/web/Dockerfile          # nginx:1.7 - yuzlerce CVE gostermek icin
+  - labs/scanning/python                  # python:3.4-alpine
+  - labs/scanning/docker/Dockerfile       # alpine:3.8
+  - labs/golden-images/apps/app-1         # openjdk:8-jre-alpine kiyaslama tabani
+
+  # Vendor'lanmis kurulum manifestleri: SADECE imaj etiketini degistirmek
+  # calisan bir kurulum vermez (CRD/RBAC yapisi surumler arasinda degisti).
+  # Yarim yamali manifest, acikca eski olandan DAHA KOTU - sessizce bozulur.
+  # Bunlar tools/fetch-manifests.py ile komple yeniden indirilir.
+  - labs/argo/specs/argocd/2.1.2.yaml           # ArgoCD v2.1.2 -> v3.5.5 (komple degisim)
+  - labs/admission/specs/opa-gatekeeper/3.5.yaml # Gatekeeper v3.5.2 -> v3.23.1; policy/v1beta1
+                                                 # (PodSecurityPolicy) k8s 1.25'te KALDIRILDI
+  - labs/argo/specs/gogs/gogs.yaml               # Gogs -> Gitea: env/config semasi farkli

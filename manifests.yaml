@@ -1,0 +1,45 @@
+# Vendor'lanmis upstream kurulum manifestleri.
+#
+# Bu dosyalar upstream projeden OLDUGU GIBI kopyalanir. Icindeki imaj
+# etiketini elle degistirmek CALISAN bir kurulum vermez: CRD semasi, RBAC
+# kurallari ve webhook yapilandirmasi surumler arasinda degisir.
+#
+# Ornek: Gatekeeper v3.5 manifesti policy/v1beta1 (PodSecurityPolicy)
+# kullaniyor - bu API Kubernetes 1.25'te KALDIRILDI. Guncel kumede manifest
+# hic uygulanmiyor, lab ilk adimda oluyor.
+#
+# tools/fetch-manifests.py bunlari indirir, eski dosyayi siler ve
+# dokumanlardaki yol referanslarini gunceller.
+
+manifests:
+  - id: argocd
+    url: https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
+    version: v3.5.5
+    target: labs/argo/specs/argocd/v3.5.5.yaml
+    replaces: labs/argo/specs/argocd/2.1.2.yaml
+    repos: [DevSecOps, Kubernetes]
+    note: ArgoCD v2.1 -> v3.5; CRD ve RBAC yapisi tamamen degisti.
+
+  - id: gatekeeper
+    url: https://raw.githubusercontent.com/open-policy-agent/gatekeeper/v3.23.1/deploy/gatekeeper.yaml
+    version: v3.23.1
+    target: labs/admission/specs/opa-gatekeeper/v3.23.1.yaml
+    replaces: labs/admission/specs/opa-gatekeeper/3.5.yaml
+    repos: [DevSecOps, Kubernetes]
+    note: v3.5 manifesti policy/v1beta1 kullaniyor; k8s 1.25'te kaldirildi.
+
+  - id: cert-manager
+    url: https://github.com/cert-manager/cert-manager/releases/download/v1.21.2/cert-manager.yaml
+    version: v1.21.2
+    target: labs/admission/specs/cert-manager/v1.21.2.yaml
+    replaces: labs/admission/specs/cert-manager/1.5.3.yaml
+    repos: [Kubernetes]
+    note: 1.5 -> 1.21; cert-manager.io/v1alpha2 API'leri kaldirildi.
+
+  - id: calico
+    url: https://raw.githubusercontent.com/projectcalico/calico/v3.33.0/manifests/calico.yaml
+    version: v3.33.0
+    target: labs/networkpolicy/specs/k3d/calico-v3.33.0.yaml
+    replaces: labs/networkpolicy/specs/k3d/calico.yaml
+    repos: [Kubernetes]
+    note: NetworkPolicy labi icin CNI; eski surum guncel k3d ile uyumsuz.
