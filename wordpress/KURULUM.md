@@ -101,11 +101,23 @@ Rewrite kuralları henüz yazılmadıysa sorgu dizesi de çalışır:
 - **Ham HTML.** Lablar ipuçları için `<details><summary>` kullanıyor; bu yapı
   korunur. `wp_kses` ile script/iframe/`on*` temizlenir.
 
-## Doğrulanmamış kısım
+## Doğrulanan ve doğrulanmayan kısımlar
 
-Bu eklenti **canlı bir WordPress üzerinde çalıştırılmadı** — geliştirme
-makinesinde PHP kurulu olmadığı için `php -l` sözdizimi kontrolü de
-yapılamadı. Yalnızca yapısal denge kontrolünden geçti.
+**Doğrulandı** (CI'da, `.github/workflows/wordpress-plugin.yml`):
+
+- Üç PHP dosyasının tamamı **PHP 7.4, 8.2 ve 8.4**'te `php -l` sözdizimi
+  kontrolünden geçiyor. (Eklenti `Requires PHP: 7.4` diyor; en eski
+  desteklenen sürümde de en güncelinde de ayrıştığı teyit edildi.)
+- Kısa açma etiketi (`<?`) yok — sunucuda `short_open_tag` kapalıysa PHP
+  kodunun ham metin olarak basılmasının klasik sebebi.
+- Dosyalar BOM ile başlamıyor — "headers already sent" ve beyaz ekranın
+  diğer klasik sebebi.
+- Eklenti başlığı alanları ve metin alanı tutarlı.
+
+**Doğrulanmadı:** eklenti canlı bir WordPress üzerinde **çalıştırılmadı**.
+Sözdizimi doğru olması, çalışma zamanı davranışının doğru olduğunu
+göstermiyor — kalıcı bağlantı kuralları, kısa kod çıktısı ve markdown
+render'ı gerçek bir kurulumda görülmeli.
 
 İlk kurulumda şu sırayla doğrulayın:
 
