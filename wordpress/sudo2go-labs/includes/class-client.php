@@ -62,6 +62,18 @@ class Sudo2Go_Client {
 	}
 
 	/**
+	 * Uzun omurlu yedek kopyanin anahtari.
+	 *
+	 * Her basarili cekimde icerik buraya da yaziliyor. GitHub yavaslarsa ya
+	 * da erisilemezse ogrenciye hata kutusu yerine son bilinen iyi kopya
+	 * gosteriliyor - ders ortasinda bir ag hiccup'i labi bos bir sayfaya
+	 * cevirmesin diye.
+	 */
+	private function backup_key( $path ) {
+		return self::CACHE_PREFIX . 'bak_' . md5( $this->raw_base() . '|' . $path );
+	}
+
+	/**
 	 * Repodan bir dosyayi getirir. Hata halinde WP_Error doner.
 	 *
 	 * @param string $path Repo koku icindeki yol, ornek: labs/jenkins/README.md
@@ -79,9 +91,12 @@ class Sudo2Go_Client {
 		}
 
 		$args = array(
-			'timeout'    => 12,
-			'user-agent' => 'sudo2go-labs/1.0 (+WordPress)',
-			'headers'    => array( 'Accept' => 'text/plain' ),
+			// 20 sn: paylasimli hosting'den GitHub'a ilk cekim yavas olabiliyor.
+			// (Canlida 10 sn'de zaman asimina ugrayan bir istek gorduk.)
+			'timeout'     => 20,
+			'redirection' => 3,
+			'user-agent'  => 'sudo2go-labs/1.1 (+WordPress)',
+			'headers'     => array( 'Accept' => 'text/plain' ),
 		);
 
 		$token = Sudo2Go_Labs::option( 'github_token' );
@@ -90,12 +105,18 @@ class Sudo2Go_Client {
 			$args['headers']['Authorization'] = 'Bearer ' . $token;
 		}
 
-		$response = wp_remote_get( $this->raw_base() . '/' . $path, $args );
+		$url = $this->raw_base() . '/' . $path;
+
+		// Zaman asimi gecici bir durum; bir kez daha deniyoruz. 404 gibi
+		// kalici hatalarda tekrar denemenin anlami yok, o yuzden yalnizca
+		// baglanti hatalarinda.
+		$response = wp_remote_get( $url, $args );
+		if ( is_wp_error( $response ) ) {
+			$response = wp_remote_get( $url, $args );
+		}
 
 		if ( is_wp_error( $response ) ) {
-			// Kisa sureli negatif onbellek: her sayfa yuklemesinde tekrar denemeyelim.
-			set_transient( $key, array( 'error' => $response->get_error_message() ), 60 );
-			return $response;
+			return $this->fallback( $key, $path, $response->get_error_message(), false );
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
@@ -106,13 +127,44 @@ class Sudo2Go_Client {
 				$code,
 				$path
 			);
-			set_transient( $key, array( 'error' => $msg ), 404 === $code ? 300 : 60 );
-			return new WP_Error( 's2g_http_' . $code, $msg );
+			// 404 kalici sayilir (dosya gercekten yok): yedege donmuyoruz ve
+			// daha uzun sure negatif onbellege aliyoruz.
+			return $this->fallback( $key, $path, $msg, 404 === $code );
 		}
 
 		$body = wp_remote_retrieve_body( $response );
 		set_transient( $key, $body, $this->ttl );
+		// Son bilinen iyi kopya: bir hafta. GitHub erisilemezse bu kullanilir.
+		set_transient( $this->backup_key( $path ), $body, WEEK_IN_SECONDS );
 		return $body;
+	}
+
+	/**
+	 * Cekim basarisiz oldugunda ne doneceGini belirler.
+	 *
+	 * Once son bilinen iyi kopyaya bakiyoruz: GitHub yavaslarsa ogrenci
+	 * bos bir hata kutusu degil (biraz eski olabilecek) lab metnini goruyor.
+	 * Yedek yoksa hatayi donuyoruz ve kisa sureli negatif onbellege aliyoruz
+	 * ki her sayfa yuklemesi yeniden beklemesin.
+	 *
+	 * @param string $key       Normal onbellek anahtari.
+	 * @param string $path      Repo icindeki yol.
+	 * @param string $message   Hata mesaji.
+	 * @param bool   $permanent 404 gibi kalici hata mi (yedege donulmez).
+	 * @return string|WP_Error
+	 */
+	private function fallback( $key, $path, $message, $permanent ) {
+		if ( ! $permanent ) {
+			$backup = get_transient( $this->backup_key( $path ) );
+			if ( is_string( $backup ) && '' !== $backup ) {
+				// Yedegi kisa sure normal onbellege de koyuyoruz: ayni istek
+				// saniyeler icinde tekrar gelirse yine beklemesin.
+				set_transient( $key, $backup, 120 );
+				return $backup;
+			}
+		}
+		set_transient( $key, array( 'error' => $message ), $permanent ? 300 : 60 );
+		return new WP_Error( 's2g_fetch_failed', $message );
 	}
 
 	/**

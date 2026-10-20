@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.1
+ * Version:           1.1.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.1' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.2' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -699,7 +699,14 @@ class Sudo2Go_Labs {
 	}
 
 	public function settings_page() {
-		$opts = wp_parse_args( (array) get_option( self::OPTION, array() ), self::defaults() );
+		// option() uzerinden okuyoruz: bos ya da gecersiz degerleri varsayilana
+		// cevirir. Dogrudan wp_parse_args kullanildiginda, veritabaninda bos
+		// kalmis bir default_lang hicbir <option>'i secili yapmiyor ve tarayici
+		// ILK secenegi (EN) seciyordu - kaydedilince de 'en' olarak kaliciydi.
+		$opts = array();
+		foreach ( self::defaults() as $key => $unused ) {
+			$opts[ $key ] = self::option( $key );
+		}
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'sudo2go Labs', 'sudo2go-labs' ); ?></h1>
