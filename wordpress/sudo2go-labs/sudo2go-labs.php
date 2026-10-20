@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.6
+ * Version:           1.1.7
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.6' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.7' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -74,6 +74,40 @@ class Sudo2Go_Labs {
 			return isset( $defaults[ $key ] ) ? $defaults[ $key ] : null;
 		}
 		return $opts[ $key ];
+	}
+
+	/**
+	 * Kisa kod parametresini editorun ona yaptigi seylerden arindirir.
+	 *
+	 * Icerik editorleri parametre degerini birden fazla sekilde bozabiliyor:
+	 *   lang="tr"        istenen
+	 *   lang=“tr”        wptexturize duz tirnagi tipografik tirnaga cevirir
+	 *   lang=&quot;tr&quot;  tirnaklar HTML varligi olarak saklanir
+	 * Ikinci ve ucuncu durumda kisa kod ayristiricisi degeri tirnaklarla
+	 * birlikte veriyor ve parametre sessizce yok sayiliyordu.
+	 *
+	 * Once HTML varliklarini cozuyoruz, sonra harf/rakam disini atiyoruz.
+	 * Beklenen degerler listesi verildiyse ve sonuc hala tutmuyorsa,
+	 * dizgi icinde gecen ilk beklenen degeri ariyoruz - '&quot;tr&quot;'
+	 * harf suzgecinden 'quottrquot' olarak cikiyor ve icinde 'tr' var.
+	 *
+	 * @param mixed    $value    Kisa koddan gelen ham deger.
+	 * @param string[] $expected Izin verilen degerler (opsiyonel).
+	 */
+	private static function clean_att( $value, array $expected = array() ) {
+		$value = html_entity_decode( (string) $value, ENT_QUOTES, 'UTF-8' );
+		$value = strtolower( $value );
+		$clean = preg_replace( '/[^a-z0-9_-]/', '', $value );
+
+		if ( ! $expected || in_array( $clean, $expected, true ) ) {
+			return $clean;
+		}
+		foreach ( $expected as $candidate ) {
+			if ( false !== strpos( $clean, $candidate ) ) {
+				return $candidate;
+			}
+		}
+		return $clean;
 	}
 
 	/**
@@ -251,8 +285,8 @@ class Sudo2Go_Labs {
 		// olarak veriyor; gecerli dil listesinde bulunamadigi icin parametre
 		// sessizce yok sayiliyordu. Harf disi her seyi atarak bunu
 		// tolere ediyoruz - yazim tirnagi, bosluk, gizli karakter farketmez.
-		$atts['lang']  = preg_replace( '/[^a-z]/', '', strtolower( (string) $atts['lang'] ) );
-		$atts['track'] = preg_replace( '/[^a-z0-9_-]/', '', strtolower( (string) $atts['track'] ) );
+		$atts['lang']  = self::clean_att( $atts['lang'], self::LANGS );
+		$atts['track'] = self::clean_att( $atts['track'] );
 
 		// Dil onceligi: URL > kisa kod parametresi > ayar.
 		//
