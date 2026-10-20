@@ -176,7 +176,9 @@ own_images:
       # 1.0.1: casc.yaml'da authorizationStrategy sembolu hataliydi
       # (loggedInAuthenticationStrategy), Jenkins hic acilmiyordu. 1.0.0'i
       # ceken makinelerde bozuk imaj onbellekte kalmasin diye etiket yukseldi.
-      tag: "1.0.1"
+      # 1.0.2: docker CLI eklentileri (compose, buildx) imaja kopyalanmiyordu;
+      # pipeline labinin 'docker compose build' adimi calismiyordu.
+      tag: "1.0.2"
     labs-gitea:
       source: images/gitea
       base: gitea/gitea:28.2.0
