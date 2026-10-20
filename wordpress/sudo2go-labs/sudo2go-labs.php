@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.0
+ * Version:           1.1.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.0' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.1' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -64,7 +64,16 @@ class Sudo2Go_Labs {
 
 	public static function option( $key ) {
 		$opts = wp_parse_args( (array) get_option( self::OPTION, array() ), self::defaults() );
-		return isset( $opts[ $key ] ) ? $opts[ $key ] : null;
+
+		// wp_parse_args BOS DIZGIYI gecerli bir deger sayiyor, dolayisiyla
+		// veritabaninda bos kalmis bir alan varsayilani ezebiliyor. Bos degeri
+		// eksik sayip varsayilana donuyoruz - aksi halde ornegin bos bir
+		// default_lang, dil secimini sessizce ingilizceye dusuruyordu.
+		if ( ! isset( $opts[ $key ] ) || '' === $opts[ $key ] ) {
+			$defaults = self::defaults();
+			return isset( $defaults[ $key ] ) ? $defaults[ $key ] : null;
+		}
+		return $opts[ $key ];
 	}
 
 	/**
@@ -175,7 +184,14 @@ class Sudo2Go_Labs {
 
 	private function lang() {
 		$lang = $this->current( 's2g_lang', self::option( 'default_lang' ) );
-		return in_array( $lang, self::LANGS, true ) ? $lang : 'en';
+		if ( in_array( $lang, self::LANGS, true ) ) {
+			return $lang;
+		}
+		// Gecersiz ya da bos deger geldiginde sabit 'en' yerine YAPILANDIRILMIS
+		// varsayilana donuyoruz. Eski hali, ayar bozuksa siteyi sessizce
+		// ingilizceye dusuruyordu - Turkce varsayilanli bir sitede yanlis.
+		$fallback = self::defaults()['default_lang'];
+		return in_array( $fallback, self::LANGS, true ) ? $fallback : 'en';
 	}
 
 	public function url( $lang = null, $track = null, $lab = null, $doc = null ) {

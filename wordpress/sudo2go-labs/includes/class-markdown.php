@@ -70,8 +70,27 @@ class Sudo2Go_Markdown {
 		return array( $meta, $body );
 	}
 
+	/** @var int Ic ice render derinligi - basliklari yalnizca en ustte sifirlar. */
+	private $depth = 0;
+
 	public function render( $markdown ) {
-		$this->headings = array();
+		// HATA DUZELTMESI: render() ozyinelemeli cagriliyor (alinti bloklari ve
+		// ic ice listeler icin). Basliklari her cagrida sifirlarsak, dokumanin
+		// sonundaki bir alinti blogu o ana kadar toplanmis TUM basliklari
+		// siliyor ve icerik tablosu hic cikmiyordu. Yalnizca en ust seviyedeki
+		// cagri sifirliyor.
+		if ( 0 === $this->depth ) {
+			$this->headings = array();
+		}
+		$this->depth++;
+		try {
+			return $this->render_blocks( $markdown );
+		} finally {
+			$this->depth--;
+		}
+	}
+
+	private function render_blocks( $markdown ) {
 		$text           = preg_replace( "/\r\n?/", "\n", (string) $markdown );
 		$lines          = explode( "\n", $text );
 		$out            = array();
