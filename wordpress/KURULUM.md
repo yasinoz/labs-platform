@@ -145,6 +145,46 @@ rewrite kurallarını yenilemesi için standart adım).
 Rewrite kuralları henüz yazılmadıysa sorgu dizesi de çalışır:
 `/labs/?s2g_lang=tr&s2g_track=devsecops&s2g_lab=jenkins`
 
+## yasinoz.me icin ortam notlari
+
+Site uzerinde yapilan kontroller (2026-10-20):
+
+| Kontrol | Sonuc |
+|---|---|
+| WordPress | 7.1.3, Cloudflare arkasinda, LiteSpeed sunucu |
+| Guzel kalici baglantilar | **Acik** (`/wp-json/` 200 donuyor) — eklentinin rewrite kurallari calisir |
+| `/labs/` yolu | Bos (404) — baska bir sey tarafindan kullanilmiyor |
+| GTranslate | `url_structure: "none"` — JavaScript widget modu, URL oneki **uretmiyor** (`/tr/` 404). `/labs/tr/...` ile cakisma yok |
+| Dis HTTPS cikisi | Jetpack, Site Kit ve GTranslate CDN calisiyor — sunucunun dis dunyaya HTTPS cikisi var, GitHub'a erisim de beklenir |
+
+### Onbellek: uc katman var, dikkat
+
+Istek sirayla **Cloudflare -> LiteSpeed sayfa onbellegi -> WordPress** uzerinden
+geciyor. Eklentinin kendi onbellegi (transient, varsayilan 600 sn) bunlarin
+en altinda. Yani repoya push ettiginiz bir duzeltme, en yavas katman kadar
+gecikmeyle gorunur.
+
+Ders sirasinda duzeltme yapacaksaniz `/labs/*` yolunu sayfa onbelleginden
+cikarin:
+
+- **LiteSpeed Cache** eklentisi varsa: _Cache > Excludes > Do Not Cache URIs_
+  alanina `/labs` yazin
+- **Cloudflare**: Rules > Cache Rules ile `URI Path starts with /labs` icin
+  _Bypass cache_ kurali ekleyin (ya da Development Mode'u gecici acin)
+- Eklentinin kendi onbellegini **Ayarlar > sudo2go Labs > Onbellegi temizle**
+  ile her zaman hemen bosaltabilirsiniz
+
+Ders disinda uc katmanin da acik olmasi iyi: lab sayfalari statik metin
+oldugu icin onbellekten servis edilmeleri siteyi hizlandirir.
+
+### GTranslate ile birlikte
+
+GTranslate sayfayi istemci tarafinda makine cevirisiyle degistiriyor. Lab
+sayfalarinda zaten **insan cevirisi** TR metin sunuluyor, dolayisiyla
+`/labs/tr/...` sayfalarinda GTranslate'i kullanmaya gerek yok. Ziyaretci
+widget'tan ceviri secerse Turkce metin bir kez daha makine cevirisinden
+gecebilir; isterseniz GTranslate ayarlarindan `/labs` yolunu haric tutun.
+
 ## Davranış notları
 
 - **Dil yedeği.** Bir lab TR'ye çevrilmemişse İngilizcesi gösterilir ve
