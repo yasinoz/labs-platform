@@ -173,7 +173,10 @@ own_images:
     labs-jenkins:
       source: images/jenkins
       base: jenkins/jenkins:2.580.1-lts-jdk21
-      tag: "1.0.0"
+      # 1.0.1: casc.yaml'da authorizationStrategy sembolu hataliydi
+      # (loggedInAuthenticationStrategy), Jenkins hic acilmiyordu. 1.0.0'i
+      # ceken makinelerde bozuk imaj onbellekte kalmasin diye etiket yukseldi.
+      tag: "1.0.1"
     labs-gitea:
       source: images/gitea
       base: gitea/gitea:28.2.0
