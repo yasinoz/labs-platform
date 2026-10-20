@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.0.0' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.0' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -68,6 +68,32 @@ class Sudo2Go_Labs {
 	}
 
 	/**
+	 * Lab sayfasinin yolu - ic ice sayfalari destekler.
+	 *
+	 * Tek segment ('labs') kadar cok segment ('course-list/labs') de
+	 * kabul edilir. Sitenin kendi bilgi mimarisine uymak icin: egitim
+	 * icerigi /course-list/ altinda topluysa lab sayfasinin da oraya
+	 * girmesi dogal olur.
+	 *
+	 * Her segment ayri ayri sanitize_title()'dan gecer; boylece butun
+	 * yolu tek seferde sanitize edip bolu isaretlerini kaybetmiyoruz
+	 * ('course-list/labs' -> 'course-listlabs' hatasi).
+	 *
+	 * @return string Bolu ile ayrilmis yol, bastan ve sondan bolusuz.
+	 */
+	public static function page_path() {
+		$raw = (string) self::option( 'page_slug' );
+		$parts = array();
+		foreach ( explode( '/', $raw ) as $segment ) {
+			$segment = sanitize_title( $segment );
+			if ( '' !== $segment ) {
+				$parts[] = $segment;
+			}
+		}
+		return implode( '/', $parts );
+	}
+
+	/**
 	 * Yapilandirilmis track'leri cozumler.
 	 *
 	 * Satir bicimi: slug|owner|repo|branch
@@ -103,7 +129,10 @@ class Sudo2Go_Labs {
 	}
 
 	public function register_rewrites() {
-		$slug = sanitize_title( self::option( 'page_slug' ) );
+		// Ic ice sayfa yolu da olabilir: 'labs' ya da 'course-list/labs'.
+		// pagename sorgu degiskeni zaten tam yolu bekliyor, dolayisiyla
+		// ikisi de ayni sekilde calisiyor.
+		$slug = self::page_path();
 		if ( ! $slug ) {
 			return;
 		}
@@ -150,7 +179,7 @@ class Sudo2Go_Labs {
 	}
 
 	public function url( $lang = null, $track = null, $lab = null, $doc = null ) {
-		$slug = sanitize_title( self::option( 'page_slug' ) );
+		$slug = self::page_path();
 		$path = array( $slug );
 		if ( $lang ) {
 			$path[] = $lang;
@@ -617,7 +646,17 @@ class Sudo2Go_Labs {
 
 	public function sanitize_options( $input ) {
 		$out                 = self::defaults();
-		$out['page_slug']    = sanitize_title( $input['page_slug'] ?? 'labs' );
+		// Ic ice yol destegi: her segmenti ayri ayri sanitize ediyoruz,
+		// yoksa 'course-list/labs' tek parcaya cokup bolu kayboluyor.
+		$raw_slug = (string) ( $input['page_slug'] ?? 'labs' );
+		$segments = array();
+		foreach ( explode( '/', $raw_slug ) as $segment ) {
+			$segment = sanitize_title( $segment );
+			if ( '' !== $segment ) {
+				$segments[] = $segment;
+			}
+		}
+		$out['page_slug'] = $segments ? implode( '/', $segments ) : 'labs';
 		$out['cache_ttl']    = max( 60, (int) ( $input['cache_ttl'] ?? 600 ) );
 		$out['github_token'] = sanitize_text_field( $input['github_token'] ?? '' );
 		$lang                = $input['default_lang'] ?? 'tr';
@@ -670,7 +709,9 @@ class Sudo2Go_Labs {
 							<input name="<?php echo esc_attr( self::OPTION ); ?>[page_slug]" id="s2g_page_slug" type="text"
 								value="<?php echo esc_attr( $opts['page_slug'] ); ?>" class="regular-text" />
 							<p class="description">
-								<?php esc_html_e( 'Bu slug ile bir WordPress sayfasi olusturun ve icine [sudo2go_labs] kisa kodunu koyun.', 'sudo2go-labs' ); ?>
+								<?php esc_html_e( 'Bu yolda bir WordPress sayfasi olusturun ve icine [sudo2go_labs] kisa kodunu koyun. Sayfa olmadan hicbir sey gorunmez.', 'sudo2go-labs' ); ?>
+								<br />
+								<?php esc_html_e( 'Ic ice sayfa da olur: ornegin course-list/labs. O durumda labs sayfasini course-list sayfasinin alt sayfasi yapin.', 'sudo2go-labs' ); ?>
 							</p>
 						</td>
 					</tr>
