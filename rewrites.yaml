@@ -37,8 +37,8 @@ images:
   "nginx:1.21.4-alpine": "nginx:1.31.7-alpine"
 
   # --- Lab altyapisi: courselabs imajlari -> resmi imaj / kendi GHCR ------
-  "courselabs/jenkins:2.319.1": "ghcr.io/yasinoz/labs-jenkins:1.0.0"
-  "courselabs/gogs:0.12.3": "ghcr.io/yasinoz/labs-gitea:1.0.0"
+  "courselabs/jenkins:2.319.1": "ghcr.io/yasinoz/labs-jenkins:1.0.1"
+  "courselabs/gogs:0.12.3": "gitea/gitea:28.2.0"
   "courselabs/sonarqube:9.2.1": "sonarqube:26.10.0.133078-community"
   "courselabs/prometheus:v2.28.1": "prom/prometheus:v3.15.0"
   "courselabs/node-exporter": "prom/node-exporter:v1.9.1"
