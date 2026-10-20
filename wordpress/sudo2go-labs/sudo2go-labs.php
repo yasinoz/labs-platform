@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.2' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.3' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -318,6 +318,11 @@ class Sudo2Go_Labs {
 				$title   = $this->pick( $manifest['track']['titles'] ?? array(), $lang, $slug );
 				$summary = $this->pick( $manifest['track']['summaries'] ?? array(), $lang, '' );
 				$count   = isset( $manifest['stats']['total'] ) ? (int) $manifest['stats']['total'] : null;
+			} else {
+				// Manifest cekilemedi: kart ham slug ile ciziliyor. Bu bozuk
+				// cikti sayfa onbellegine girmesin, yoksa gecici bir aksaklik
+				// kalici hale geliyor.
+				$this->prevent_caching();
 			}
 			$html .= sprintf(
 				'<a class="s2g-card" href="%s"><h2>%s</h2><p>%s</p>%s</a>',
@@ -623,7 +628,31 @@ class Sudo2Go_Labs {
 		return $client->blob_base() . '/' . $path;
 	}
 
+	/**
+	 * Hata ciktisinin sayfa onbellegine ALINMASINI engeller.
+	 *
+	 * Canlida gorulen senaryo: GitHub'a yapilan tek bir istek zaman asimina
+	 * ugradi, eklenti hata kutusu bastirdi ve LiteSpeed o sayfayi
+	 * max-age=604800 ile onbellege aldi. Yani bir haftalik gecici bir aksaklik
+	 * kalici bir "Lab icerigi yuklenemedi" sayfasina dondu.
+	 *
+	 * DONOTCACHEPAGE sabitini LiteSpeed, W3 Total Cache, WP Super Cache ve
+	 * WP Rocket taniyor; istek sonunda tamponu saklamaya karar verirken
+	 * bakiyorlar, dolayisiyla kisa kod icinde tanimlamak yeterli.
+	 */
+	private function prevent_caching() {
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		// LiteSpeed'in kendi kontrolu - eklenti aktifse daha kesin.
+		do_action( 'litespeed_control_set_nocache', 'sudo2go-labs: icerik cekilemedi' );
+		if ( ! headers_sent() ) {
+			nocache_headers();
+		}
+	}
+
 	private function error_box( $message, $track = '' ) {
+		$this->prevent_caching();
 		$html  = '<div class="s2g"><div class="s2g-error">';
 		$html .= '<strong>' . esc_html__( 'Lab icerigi yuklenemedi.', 'sudo2go-labs' ) . '</strong>';
 		$html .= '<p>' . esc_html( $message ) . '</p>';
