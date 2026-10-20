@@ -95,6 +95,12 @@ Yol ve kullanıcı adı sizin hesabınıza göre değişir.
 [sudo2go_labs]
 ```
 
+> **Kısa kod bloğunu kullanın.** WordPress içerikteki düz tırnakları
+> tipografik tırnağa çeviriyor (`wptexturize`). Paragraf bloğuna parametreli
+> bir kısa kod yazarsanız `lang="tr"` sessizce `lang=“tr”` olabiliyor ve
+> parametre yok sayılıyor. Eklenti 1.1.6'dan beri bunu tolere ediyor, ama
+> **Kısa kod** bloğu yine de en güvenlisi.
+
 Sayfayı yayınlayın. Tüm alt sayfalar (`/labs/tr/devsecops/jenkins` gibi) bu
 tek sayfa üzerinden çalışır — her lab için ayrı WordPress sayfası açmanız
 gerekmez.

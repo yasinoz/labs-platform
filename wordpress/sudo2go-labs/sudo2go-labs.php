@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.5
+ * Version:           1.1.6
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.5' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.6' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -242,6 +242,17 @@ class Sudo2Go_Labs {
 
 	public function shortcode( $atts ) {
 		$atts = shortcode_atts( array( 'track' => '', 'lang' => '' ), $atts, 'sudo2go_labs' );
+
+		// Kisa kod parametrelerini temizle.
+		//
+		// WordPress icerikteki duz tirnaklari tipografik tirnaga ceviriyor
+		// (wptexturize). Sonucta lang="tr" yerine lang=“tr” kalabiliyor ve
+		// kisa kod ayristiricisi degeri tirnaklarla birlikte, yani “tr”
+		// olarak veriyor; gecerli dil listesinde bulunamadigi icin parametre
+		// sessizce yok sayiliyordu. Harf disi her seyi atarak bunu
+		// tolere ediyoruz - yazim tirnagi, bosluk, gizli karakter farketmez.
+		$atts['lang']  = preg_replace( '/[^a-z]/', '', strtolower( (string) $atts['lang'] ) );
+		$atts['track'] = preg_replace( '/[^a-z0-9_-]/', '', strtolower( (string) $atts['track'] ) );
 
 		// Dil onceligi: URL > kisa kod parametresi > ayar.
 		//
