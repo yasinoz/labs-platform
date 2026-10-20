@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.3
+ * Version:           1.1.4
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.3' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.4' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -803,6 +803,36 @@ class Sudo2Go_Labs {
 				</table>
 				<?php submit_button(); ?>
 			</form>
+
+			<hr />
+			<h2><?php esc_html_e( 'Tanilama', 'sudo2go-labs' ); ?></h2>
+			<p class="description">
+				<?php esc_html_e( 'Ayarlarin veritabaninda GERCEKTEN ne oldugunu ve eklentinin bunlari nasil cozdugunu gosterir. Bir ayar beklediginiz gibi davranmiyorsa buraya bakin.', 'sudo2go-labs' ); ?>
+			</p>
+			<?php
+			$raw = get_option( self::OPTION, null );
+			$rows = array(
+				__( 'Secenek satiri veritabaninda', 'sudo2go-labs' ) => ( null === $raw ? __( 'YOK (varsayilanlar kullaniliyor)', 'sudo2go-labs' ) : __( 'var', 'sudo2go-labs' ) ),
+				'default_lang ' . __( '(saklanan ham deger)', 'sudo2go-labs' ) => ( is_array( $raw ) && array_key_exists( 'default_lang', $raw )
+					? "'" . $raw['default_lang'] . "'"
+					: __( 'ayarlanmamis', 'sudo2go-labs' ) ),
+				'default_lang ' . __( '(cozulen)', 'sudo2go-labs' ) => "'" . self::option( 'default_lang' ) . "'",
+				__( 'Dil URL\'de yokken kullanilan', 'sudo2go-labs' ) => "'" . $this->lang() . "'",
+				__( 'Sayfa yolu (cozulen)', 'sudo2go-labs' ) => '/' . self::page_path() . '/',
+				__( 'Lab sayfasi var mi', 'sudo2go-labs' ) => ( get_page_by_path( self::page_path() ) ? __( 'var', 'sudo2go-labs' ) : __( 'YOK - kisa kodu tasiyan sayfayi olusturun', 'sudo2go-labs' ) ),
+				__( 'Kalici nesne onbellegi', 'sudo2go-labs' ) => ( wp_using_ext_object_cache() ? __( 'AKTIF - ayar degisikligi gorunmuyorsa bunu da temizleyin', 'sudo2go-labs' ) : __( 'yok', 'sudo2go-labs' ) ),
+			);
+			?>
+			<table class="widefat striped" style="max-width:48rem">
+				<tbody>
+				<?php foreach ( $rows as $label => $value ) : ?>
+					<tr>
+						<td style="width:18rem"><strong><?php echo esc_html( $label ); ?></strong></td>
+						<td><code><?php echo esc_html( $value ); ?></code></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
 
 			<hr />
 			<h2><?php esc_html_e( 'Onbellek', 'sudo2go-labs' ); ?></h2>
