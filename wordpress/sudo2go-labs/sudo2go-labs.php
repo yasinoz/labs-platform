@@ -3,7 +3,7 @@
  * Plugin Name:       sudo2go Labs
  * Plugin URI:        https://github.com/yasinoz
  * Description:       DevOps / DevSecOps lab dokumanlarini GitHub repolarindan canli cekip EN/TR olarak yayinlar. Tek dogruluk kaynagi repodur; WordPress'e icerik kopyalanmaz.
- * Version:           1.1.4
+ * Version:           1.1.5
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mehmet Yasin Ozkasapoglu
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SUDO2GO_LABS_VERSION', '1.1.4' );
+define( 'SUDO2GO_LABS_VERSION', '1.1.5' );
 define( 'SUDO2GO_LABS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUDO2GO_LABS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -241,8 +241,22 @@ class Sudo2Go_Labs {
 	/* ---------------------------------------------------------------- cikti */
 
 	public function shortcode( $atts ) {
-		$atts  = shortcode_atts( array( 'track' => '', 'lang' => '' ), $atts, 'sudo2go_labs' );
-		$lang  = $atts['lang'] && in_array( $atts['lang'], self::LANGS, true ) ? $atts['lang'] : $this->lang();
+		$atts = shortcode_atts( array( 'track' => '', 'lang' => '' ), $atts, 'sudo2go_labs' );
+
+		// Dil onceligi: URL > kisa kod parametresi > ayar.
+		//
+		// Onceki hali kisa kod parametresini URL'nin ONUNE koyuyordu; yani
+		// [sudo2go_labs lang="tr"] yazildiginda /labs/en/... rotalari da
+		// turkce geliyordu ve dil secici ise yaramiyordu. Kisa kod parametresi
+		// bir VARSAYILAN olmali, URL her zaman kazanmali.
+		$url_lang = $this->current( 's2g_lang', '' );
+		if ( in_array( $url_lang, self::LANGS, true ) ) {
+			$lang = $url_lang;
+		} elseif ( $atts['lang'] && in_array( $atts['lang'], self::LANGS, true ) ) {
+			$lang = $atts['lang'];
+		} else {
+			$lang = $this->lang();
+		}
 		$track = $atts['track'] ? sanitize_key( $atts['track'] ) : sanitize_key( $this->current( 's2g_track' ) );
 		$lab   = $this->current( 's2g_lab' );
 		$doc   = $this->current( 's2g_doc' );
