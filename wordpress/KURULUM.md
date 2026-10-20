@@ -163,6 +163,38 @@ Site uzerinde yapilan kontroller (2026-10-20):
 | GTranslate | `url_structure: "none"` — JavaScript widget modu, URL oneki **uretmiyor** (`/tr/` 404). `/labs/tr/...` ile cakisma yok |
 | Dis HTTPS cikisi | Jetpack, Site Kit ve GTranslate CDN calisiyor — sunucunun dis dunyaya HTTPS cikisi var, GitHub'a erisim de beklenir |
 
+### Varsayilan dil ve URL'ler
+
+`/labs/` adresi (URL'de dil yok) **Ayarlar > sudo2go Labs > Varsayilan dil**
+degerini kullanir. yasinoz.me'de bu bilincli olarak **EN**, cunku sitenin
+kendi dili ingilizce.
+
+| URL | Dil |
+|---|---|
+| `/labs/` | ayardaki varsayilan (burada EN) |
+| `/labs/en/...` | her zaman EN |
+| `/labs/tr/...` | her zaman TR |
+
+Menude Turkce girise baglanti verecekseniz dogrudan `/labs/tr/` kullanin;
+dil secici zaten her sayfada var.
+
+> Kisa kodda `lang` parametresi de kullanilabilir ama GEREKMEZ ve dikkatli
+> olun: `[sudo2go_labs lang="tr"]` yazarsaniz cikplak `/labs/` adresi de
+> turkce gelir. Varsayilani ayardan yonetmek daha temiz.
+
+### Yayini dogrulama
+
+Degisiklikten sonra yayini kontrol etmek icin:
+
+```bash
+python _platform/tools/verify-site.py https://yasinoz.me
+```
+
+Kimlik bilgisi istemez; on rotayi, icerik tablosunu, EN/TR yonlendirmeyi,
+iki seviyeli lab slug'ini ve cevrilmemis lablarda EN'e dusmeyi kontrol eder.
+Her istekte taze bir onbellek anahtari kullanir - onbelleklenmis bir yaniti
+"calisiyor" sanmaz.
+
 ### Onbellek: uc katman var, dikkat
 
 Istek sirayla **Cloudflare -> LiteSpeed sayfa onbellegi -> WordPress** uzerinden
