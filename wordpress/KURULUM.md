@@ -66,7 +66,11 @@ yukarı taşıyın; WordPress eklentiyi aksi halde görmez.
 </details>
 
 <details>
-  <summary>Alternatif: WP-CLI (cPanel Terminal veya SSH)</summary>
+  <summary>Alternatif: WP-CLI (cPanel Terminal veya SSH gerekir)</summary>
+
+> Bu yol cPanel'de **Terminal** erişimi ya da SSH gerektiriyor; paylaşımlı
+> hosting paketlerinin çoğunda bu kapalı. Console erişiminiz yoksa yukarıdaki
+> iki yoldan birini kullanın — ikisi de yalnızca panel üzerinden çalışır.
 
 ```bash
 cd ~/public_html
@@ -95,7 +99,13 @@ Sayfayı yayınlayın. Tüm alt sayfalar (`/labs/tr/devsecops/jenkins` gibi) bu
 tek sayfa üzerinden çalışır — her lab için ayrı WordPress sayfası açmanız
 gerekmez.
 
-### 3. Ayarları yapın
+### 3. Ayarları yapın — **genellikle gerekmez**
+
+Eklenti varsayılan olarak doğru değerlerle geliyor: slug `labs`, varsayılan dil
+`tr`, dört track `yasinoz/*` repolarına bakıyor. Yukarıdaki iki adımı
+yaptıysanız site çalışır durumda olmalı.
+
+Aşağıdaki tabloya yalnızca bir şeyi değiştirmek isterseniz bakın:
 
 **Ayarlar → sudo2go Labs**:
 
