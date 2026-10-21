@@ -56,6 +56,16 @@ INTENTIONALLY_BROKEN = {
     "kiamol/ch05-pi-app",             # Kubernetes/labs/troubleshooting
 }
 
+# GHCR'a AYNALANAMAYAN imajlar: Docker'in sema v1 manifestiyle yayinlanmis
+# cok eski imajlar. GHCR sema v1'i kabul etmiyor ("DENIED: invalid manifest
+# type") ve crane manifesti donusturmuyor - index'i OLDUGU GIBI kopyalamak
+# isin tanimi, cevirmek cok mimarili destegi bozardi. Bu imajlar Docker
+# Hub'dan cekilmeye devam ediyor; tarama lablarinda birer kez cekildikleri
+# icin hiz siniri acisindan onemsizler.
+CANNOT_MIRROR = {
+    "nginx:1.7",   # 2014; labs/scanning'de CVE gostermek icin kasitli eski
+}
+
 # "docker run -p 8010:80 nginx" gibi komutlarda bayraklarin DEGERLERI
 # imaj sanilmasin diye: bu bayraklardan sonraki token atlanir.
 VALUE_FLAGS = {
@@ -304,6 +314,8 @@ def main():
             skipped.append((img, "lab icinde derleniyor"))
         elif img in INTENTIONALLY_BROKEN:
             skipped.append((img, "kasitli bozuk - troubleshooting labi"))
+        elif img in CANNOT_MIRROR:
+            skipped.append((img, "sema v1 manifest - GHCR kabul etmiyor"))
         elif any(img.startswith(p) for p in LOCAL_ONLY):
             skipped.append((img, "yalnizca lab icinde uretiliyor"))
         elif not is_hub(img):
