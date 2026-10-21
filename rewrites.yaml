@@ -78,7 +78,7 @@ text:
 # Bu dosyalar mekanik yeniden yazmadan MUAF. Tarama/analiz lablarinin hedefi
 # olduklari icin kasitli olarak eski kalmalari gerekiyor.
 exempt_paths:
-  - labs/scanning/web/Dockerfile          # nginx:1.7 - yuzlerce CVE gostermek icin
+  - labs/scanning/web/Dockerfile          # nginx:1.14 - yuzlerce CVE gostermek icin
   - labs/scanning/python                  # python:3.4-alpine
   - labs/scanning/docker/Dockerfile       # alpine:3.8
   - labs/golden-images/apps/app-1         # openjdk:8-jre-alpine kiyaslama tabani
