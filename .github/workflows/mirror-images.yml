@@ -1,0 +1,124 @@
+name: Imajlari GHCR'a aynala
+
+# Lablarda kullanilan Docker Hub imajlarini GHCR'a kopyalar.
+#
+# NEDEN: Docker Hub anonim cekmeyi IP basina 6 saatte 100 istekle
+# siniriyor. Lablarda 119 Docker Hub imaji var; tek bir ogrenci bir
+# track'i bastan sona yaparken bu siniri asabiliyor, ayni NAT arkasindaki
+# bir sinif ise ilk dakikalarda doldurup "toomanyrequests" aliyor ve ders
+# duruyor. GHCR'da anonim cekme siniri yok.
+#
+# NEDEN ACTIONS: GitHub runner'lari bu sinira takilmiyor ve dogrudan
+# GHCR'a push edebiliyor; aynalama yerelde yapilamiyor cunku kopyalamak
+# icin once Docker Hub'dan cekmek gerekiyor - yani ayni sinir.
+#
+# Arac crane: cok mimarili index'i ve digest'leri OLDUGU GIBI kopyaliyor.
+# "docker pull + push" ise tek mimariye indirger ve Apple Silicon
+# ogrencilerde lab bozulurdu.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Yalnizca bu metni iceren imajlar (bos: hepsi)'
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'mirror/images.txt'
+      - '.github/workflows/mirror-images.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: crane kur
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: GHCR'a giris
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | crane auth login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Eslemeyi uret
+        id: map
+        run: |
+          python3 tools/mirror_map.py < mirror/images.txt > /tmp/map.tsv
+          if [ -n "${{ inputs.only }}" ]; then
+            grep -- "${{ inputs.only }}" /tmp/map.tsv > /tmp/filtered.tsv || true
+            mv /tmp/filtered.tsv /tmp/map.tsv
+          fi
+          echo "adet=$(wc -l < /tmp/map.tsv)" >> "$GITHUB_OUTPUT"
+          echo "Aynalanacak: $(wc -l < /tmp/map.tsv) imaj"
+
+      - name: Kopyala
+        run: |
+          ok=0; fail=0
+          : > /tmp/failed.txt
+          while IFS=$'\t' read -r src dst; do
+            [ -z "$src" ] && continue
+            # Zaten aynalanmissa ve digest ayniysa tekrar kopyalamiyoruz:
+            # 119 imajin her calismada yeniden itilmesi gereksiz.
+            if crane digest "$dst" >/dev/null 2>&1 \
+               && [ "$(crane digest "$src" 2>/dev/null)" = "$(crane digest "$dst" 2>/dev/null)" ]; then
+              echo "= guncel  $dst"
+              ok=$((ok+1)); continue
+            fi
+            if crane copy "$src" "$dst" 2>/tmp/err.txt; then
+              echo "+ kopyalandi  $src -> $dst"
+              ok=$((ok+1))
+            else
+              echo "! BASARISIZ   $src"
+              sed 's/^/      /' /tmp/err.txt | tail -2
+              echo "$src" >> /tmp/failed.txt
+              fail=$((fail+1))
+            fi
+          done < /tmp/map.tsv
+
+          echo
+          echo "========================================"
+          echo "basarili : $ok"
+          echo "basarisiz: $fail"
+          echo "========================================"
+          if [ "$fail" -gt 0 ]; then
+            echo
+            echo "Kopyalanamayan imajlar (lablarda hala Docker Hub'dan cekilecek):"
+            cat /tmp/failed.txt
+            exit 1
+          fi
+
+      - name: Paketleri herkese acik yap
+        # GHCR paketleri varsayilan olarak OZEL olusur; ogrencinin anonim
+        # cekebilmesi icin herkese acik olmalari gerekiyor.
+        # GITHUB_TOKEN kullanici paketlerinin gorunurlugunu degistiremiyor,
+        # o yuzden GHCR_PAT (write:packages yetkili) varsa o kullaniliyor.
+        # Yoksa adim hata vermeden atlanir ve ne yapilmasi gerektigi yazilir.
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+          HAS_PAT: ${{ secrets.GHCR_PAT != '' }}
+        run: |
+          if [ "$HAS_PAT" != "true" ]; then
+            echo "GHCR_PAT tanimli degil."
+            echo "Paketler OZEL olusur; ogrenci anonim cekemez."
+            echo "Cozum: write:packages yetkili bir token uretip bu reponun"
+            echo "Settings > Secrets > Actions bolumune GHCR_PAT adiyla ekle"
+            echo "ve bu is akisini tekrar calistir."
+            exit 0
+          fi
+          cut -f2 /tmp/map.tsv | sed 's|^ghcr.io/[^/]*/||; s|:.*$||' | sort -u \
+          | while read -r pkg; do
+              enc=$(printf '%s' "$pkg" | sed 's|/|%2F|g')
+              if gh api --method PATCH "/user/packages/container/$enc" \
+                   -f visibility=public >/dev/null 2>&1; then
+                echo "+ acik  $pkg"
+              else
+                echo "! degistirilemedi  $pkg"
+              fi
+            done
