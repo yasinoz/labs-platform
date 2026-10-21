@@ -73,4 +73,14 @@ if __name__ == "__main__":
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        print("%s\t%s" % (source_for_copy(line), target(line)))
+        # UC kolon: crane'in cekecegi kaynak, GHCR hedefi, ve referansin
+        # LAB DOSYALARINDAKI yazimi.
+        #
+        # Ucuncusu sart. crane kaynagi normallesiyor:
+        #   "kiamol/ch05-pi"                     -> "kiamol/ch05-pi:latest"
+        #   "kindest/node:v1.20.2@sha256:8f7e.." -> "kindest/node@sha256:8f7e.."
+        # Lab dosyalarinda ise ilk yazim duruyor. Basarili aynalamalar
+        # normallesmis adla kaydedilince referanslari guncelleyen betik
+        # dosyalarda o adi arayip bulamiyor; 18 imaj (kiamol'un tamami ve
+        # kindest/node dahil) sessizce Docker Hub'da kaliyordu.
+        print("%s\t%s\t%s" % (source_for_copy(line), target(line), line))

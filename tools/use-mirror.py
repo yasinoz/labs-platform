@@ -64,7 +64,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--revert", action="store_true")
+    # Referanslarin yarisi compose/k8s dosyalarinda (otomatik cekilen
+    # imajlar), yarisi README anlatisinda ("docker pull ubuntu:22.04").
+    # Ikincisi ogretici metin: imaj adinin KISA hali bazen dersin
+    # kendisi. --specs-only anlatiyi oldugu gibi birakip yalnizca
+    # otomatik cekilen imajlari aynaya yonlendiriyor.
+    ap.add_argument("--specs-only", action="store_true",
+                    help="yalnizca .yml/.yaml; README metnine dokunma")
     args = ap.parse_args()
+    exts = (".yml", ".yaml") if args.specs_only else EXTS
 
     pairs = load_pairs()
     if args.revert:
@@ -77,7 +85,7 @@ def main():
         if not base.is_dir():
             continue
         for p in base.rglob("*"):
-            if not p.is_file() or ".git" in p.parts or p.suffix not in EXTS:
+            if not p.is_file() or ".git" in p.parts or p.suffix not in exts:
                 continue
             try:
                 s = p.read_text(encoding="utf-8")
