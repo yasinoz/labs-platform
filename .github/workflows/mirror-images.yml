@@ -64,6 +64,9 @@ jobs:
 
       - name: Kopyala
         run: |
+          # YAML'da gercek sekme karakteri kullanilamiyor (ayristirici
+          # reddediyor), o yuzden ayraci burada uretiyoruz.
+          TAB=$(printf '\t')
           ok=0; fail=0
           : > /tmp/failed.txt
           : > /tmp/ok.tsv
@@ -74,14 +77,12 @@ jobs:
             if crane digest "$dst" >/dev/null 2>&1 \
                && [ "$(crane digest "$src" 2>/dev/null)" = "$(crane digest "$dst" 2>/dev/null)" ]; then
               echo "= guncel  $dst"
-              printf '%s %s
-' "$src" "$dst" >> /tmp/ok.tsv
+              echo "${src}${TAB}${dst}" >> /tmp/ok.tsv
               ok=$((ok+1)); continue
             fi
             if crane copy "$src" "$dst" 2>/tmp/err.txt; then
               echo "+ kopyalandi  $src -> $dst"
-              printf '%s %s
-' "$src" "$dst" >> /tmp/ok.tsv
+              echo "${src}${TAB}${dst}" >> /tmp/ok.tsv
               ok=$((ok+1))
             else
               echo "! BASARISIZ   $src"
