@@ -29,7 +29,12 @@ on:
       - '.github/workflows/mirror-images.yml'
 
 permissions:
-  contents: read
+  # contents: write -> basarili aynalamalarin listesini (mirror/mirrored.txt)
+  # repoya geri yaziyoruz. Lab referanslarini guncelleyen betik SADECE o
+  # listeyi kullaniyor: aynalanamamis bir imaja yonlendirmek labi tamamen
+  # bozardi, aynalama listesinin kusursuz olmasina guvenmek yerine
+  # gercekten basarili olanlari kaydediyoruz.
+  contents: write
   packages: write
 
 jobs:
@@ -61,6 +66,7 @@ jobs:
         run: |
           ok=0; fail=0
           : > /tmp/failed.txt
+          : > /tmp/ok.tsv
           while IFS=$'\t' read -r src dst; do
             [ -z "$src" ] && continue
             # Zaten aynalanmissa ve digest ayniysa tekrar kopyalamiyoruz:
@@ -68,10 +74,14 @@ jobs:
             if crane digest "$dst" >/dev/null 2>&1 \
                && [ "$(crane digest "$src" 2>/dev/null)" = "$(crane digest "$dst" 2>/dev/null)" ]; then
               echo "= guncel  $dst"
+              printf '%s	%s
+' "$src" "$dst" >> /tmp/ok.tsv
               ok=$((ok+1)); continue
             fi
             if crane copy "$src" "$dst" 2>/tmp/err.txt; then
               echo "+ kopyalandi  $src -> $dst"
+              printf '%s	%s
+' "$src" "$dst" >> /tmp/ok.tsv
               ok=$((ok+1))
             else
               echo "! BASARISIZ   $src"
@@ -88,10 +98,32 @@ jobs:
           echo "========================================"
           if [ "$fail" -gt 0 ]; then
             echo
-            echo "Kopyalanamayan imajlar (lablarda hala Docker Hub'dan cekilecek):"
+            echo "Kopyalanamayan imajlar (lablarda Docker Hub'dan cekilmeye devam edecek):"
             cat /tmp/failed.txt
-            exit 1
           fi
+          # Basarisizlik is akisini DURDURMUYOR: 93 imajin 90'i
+          # aynalandiysa o 90'i kullanmak istiyoruz. Basarisiz olanlar
+          # mirrored.txt'e girmedigi icin referanslari degistirilmiyor.
+          cp /tmp/ok.tsv mirror/mirrored.tsv
+
+      - name: Basarili aynalamalari repoya yaz
+        run: |
+          {
+            echo "# Gercekten aynalanmis imajlar: <kaynak>	<GHCR hedefi>"
+            echo "# Bu dosyayi is akisi uretir; elle duzenlenmez."
+            echo "# tools/use-mirror.py yalnizca buradakileri degistirir."
+            sort -u mirror/mirrored.tsv
+          } > mirror/mirrored.txt
+          rm -f mirror/mirrored.tsv
+          if git diff --quiet -- mirror/mirrored.txt; then
+            echo "degisiklik yok"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mirror/mirrored.txt
+          git commit -m "mirror: basarili aynalama listesini guncelle [skip ci]"
+          git push
 
       - name: Paketleri herkese acik yap
         # GHCR paketleri varsayilan olarak OZEL olusur; ogrencinin anonim

@@ -103,32 +103,106 @@ def docker_cmd_images(text):
     return out
 
 
-def compose_built(text):
-    """Ayni servis altinda hem image hem build varsa o imaj yerelde derleniyor."""
-    built = set()
-    cur_img, has_build, indent = None, False, None
-    for line in text.splitlines():
-        m = re.match(r"^(\s*)(image|build):\s*(.*)$", line)
-        if not m:
-            if re.match(r"^\s{0,4}\S+:\s*$", line) and indent is not None:
-                if cur_img and has_build:
-                    built.add(cur_img)
-                cur_img, has_build, indent = None, False, None
+def docker_build_tags(text):
+    """README'de "docker build -t X" ile URETILEN imaj adlari.
+
+    Bunlar lab sirasinda ogrencinin kendi makinesinde derleniyor; Docker
+    Hub'da karsiliklari yok. Aynalama listesine girerlerse is akisi var
+    olmayan bir seyi kopyalamaya calisip basarisiz oluyor - ilk calistirmada
+    "simple:test", "courselabs/app-1:v2" ve "rng-api:21.05" tam olarak bu
+    yuzden hata verdi.
+    """
+    out = set()
+    for m in re.finditer(r"docker\s+(?:buildx\s+)?build\s+([^\n`]*)", text, re.I):
+        toks = m.group(1).split()
+        for i, t in enumerate(toks):
+            if t in ("-t", "--tag") and i + 1 < len(toks):
+                out.add(toks[i + 1].strip("\"'"))
+            elif t.startswith("--tag="):
+                out.add(t.split("=", 1)[1].strip("\"'"))
+    return out
+
+
+def compose_services(text):
+    """compose dosyasindan {servis: (image, build_var_mi)} cikarir.
+
+    Servis adlari YALNIZCA "services:" altindaki ilk girinti
+    seviyesinde aranir. Girinti araligina bakmak yetmiyordu: ic ice
+    anahtarlar (networks, environment ve ag adlari) servis saniliyor,
+    "build:" de bir servis adi gibi yakalanip has_build hic
+    isaretlenmiyordu.
+    """
+    out = {}
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and not re.match(r"^services:\s*$", lines[i]):
+        i += 1
+    if i >= len(lines):
+        return {}
+    i += 1
+
+    svc_indent = None
+    cur = None
+    for line in lines[i:]:
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        sp, key, val = m.groups()
-        indent = len(sp)
+        indent = len(line) - len(line.lstrip())
+        if indent == 0:
+            break  # services blogu bitti
+        if svc_indent is None:
+            svc_indent = indent
+        if indent == svc_indent:
+            m = re.match(r"^\s*([A-Za-z0-9._-]+):\s*$", line)
+            cur = m.group(1) if m else None
+            if cur:
+                out.setdefault(cur, [None, False])
+            continue
+        if cur is None:
+            continue
+        m = re.match(r"^\s+(image|build):\s*(.*)$", line)
+        if not m:
+            continue
+        key, val = m.groups()
         if key == "image":
-            cur_img = val.strip().strip("\"'")
+            out[cur][0] = val.strip().strip("\"'")
         else:
-            has_build = True
-    if cur_img and has_build:
-        built.add(cur_img)
+            out[cur][1] = True
+    return {k: tuple(v) for k, v in out.items()}
+
+
+def built_images(compose_by_dir):
+    """Yerelde derlenen imajlar.
+
+    COMPOSE OVERRIDE KALIBI: core.yml "image: rng-api:21.05" diyor ama
+    "build:" ayri bir dosyada (build.yml) ve ikisi
+    "-f core.yml -f build.yml" ile birlikte kullaniliyor. Dosya bazli
+    bakmak bunu goremiyordu ve bu imajlar aynalama listesine girip
+    "var olmayan imaj" hatasi veriyordu. Servis adi uzerinden AYNI
+    DIZINDEKI tum compose dosyalari birlestiriliyor.
+    """
+    built = set()
+    for services_list in compose_by_dir.values():
+        imgs = {}
+        builds = set()
+        for services in services_list:
+            for name, (img, has_build) in services.items():
+                if img:
+                    imgs.setdefault(name, set()).add(img)
+                if has_build:
+                    builds.add(name)
+        # Bir servis override dosyalarinda FARKLI imaj adlari tasiyabiliyor
+        # (core.yml "rng-api:21.05", docker-compose.yml "rng-api:21.05-local").
+        # Servis derleniyorsa o adlarin HEPSI yerelde uretiliyor demektir;
+        # yalnizca ilkini almak digerlerini aynalama listesinde birakiyordu.
+        for name in builds:
+            built |= imgs.get(name, set())
     return built
 
 
 def collect():
     found = {}
     built_anywhere = set()
+    compose_by_dir = {}
 
     for t in TRACKS:
         base = ROOT / t
@@ -144,10 +218,14 @@ def collect():
             rel = p.relative_to(ROOT).as_posix()
             name = p.name
 
-            if name in ("docker-compose.yml", "docker-compose.yaml"):
-                built_anywhere |= compose_built(text)
+            # Tum compose dosyalari (override'lar dahil) dizin bazinda
+            # toplaniyor; "build:" ayri dosyada olabiliyor.
+            if name.endswith((".yml", ".yaml")) and "services:" in text:
+                compose_by_dir.setdefault(p.parent.as_posix(), []).append(
+                    compose_services(text))
 
             if name.endswith(".md"):
+                built_anywhere |= docker_build_tags(text)
                 for img in docker_cmd_images(text):
                     found.setdefault(img, set()).add(rel)
                 continue
@@ -166,6 +244,7 @@ def collect():
                 if "/" not in img and ":" not in img and "@" not in img:
                     continue
                 found.setdefault(img, set()).add(rel)
+    built_anywhere |= built_images(compose_by_dir)
     return found, built_anywhere
 
 
