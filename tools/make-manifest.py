@@ -38,7 +38,7 @@ def doc_paths(lab_dir: Path, lang: str):
     return out
 
 
-def frontmatter_block(lab, section, lang, repo_rel):
+def frontmatter_block(lab, section, lang, repo_rel, status=None):
     title = lab["titles"].get(lang) or lab["titles"]["en"]
     requires = lab.get("requires") or []
     lines = [
@@ -50,12 +50,41 @@ def frontmatter_block(lab, section, lang, repo_rel):
         "order: " + str(lab["order"]),
         "duration: " + str(lab.get("duration") or 0),
         "requires: [" + ", ".join(requires) + "]",
-        "status: " + lab.get("status", "needs-review"),
+        "status: " + (status or lab.get("status", "needs-review")),
         "upstream: " + repo_rel,
         "---",
         "",
     ]
     return "\n".join(lines)
+
+
+def read_status(path):
+    """README frontmatter'indaki status degerini okur.
+
+    DOGRULUK KAYNAGI README'dir, sections.yaml degil. Bir lab uctan uca
+    calistirilip dogrulandiginda sonuc o dosyanin frontmatter'ina
+    yaziliyor; manifest de oradan okumali.
+
+    Onceden status yalnizca sections.yaml'dan geliyordu, orada ise boyle
+    bir alan hic yok - yani lab.get("status", "needs-review") her zaman
+    varsayilani donduruyordu. Sonuc: kac lab dogrulanirsa dogrulansin
+    manifest hepsini "needs-review" yaziyor, site de hepsini "beta"
+    etiketiyle gosteriyordu. Dogrulama emegi hicbir zaman yuzeye
+    cikamiyordu.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    head = text[3:end] if end != -1 else text[3:400]
+    for line in head.splitlines():
+        if line.strip().startswith("status:"):
+            v = line.split(":", 1)[1].strip().strip("\"'")
+            return v or None
+    return None
 
 
 def strip_frontmatter(text):
@@ -192,7 +221,11 @@ def main():
                 "titles": lab["titles"],
                 "duration": lab.get("duration") or 0,
                 "requires": lab.get("requires") or [],
-                "status": lab.get("status", "needs-review"),
+                # status README'den okunuyor; sections.yaml'da boyle bir
+                # alan yok ve dogrulama sonucu oraya degil README'ye yaziliyor.
+                "status": (read_status(doc_paths(lab_dir, "en").get("readme"))
+                           if doc_paths(lab_dir, "en").get("readme") else None)
+                          or lab.get("status", "needs-review"),
                 "path": ("labs/" + lab["slug"]),
                 "docs": {},
             }
@@ -210,7 +243,8 @@ def main():
                     text = p.read_text(encoding="utf-8")
                     body = strip_frontmatter(text)
                     block = frontmatter_block(lab, section, lang,
-                                              "labs/" + lab["slug"])
+                                              "labs/" + lab["slug"],
+                                              status=entry["status"])
                     new = block + body
                     if new != text:
                         p.write_text(new, encoding="utf-8", newline="")
