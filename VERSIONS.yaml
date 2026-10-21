@@ -197,6 +197,12 @@ intentionally_vulnerable:
   - image: python:3.4-alpine
     used_by: [labs/scanning]
     reason: CVE-2019-15903 dahil kritik bulgular icin
-  - image: openjdk:8-jre-alpine
+  - image: amazoncorretto:8
     used_by: [labs/golden-images]
-    reason: Eski temel imaj / altin imaj kiyaslamasi icin
+    reason: |
+      Eski temel imaj / altin imaj kiyaslamasi icin: Java 8 ve runtime'da
+      JDK. Upstream burada 'java:8-jdk' kullaniyordu; 'java' da onun
+      yerini alan 'openjdk' de Docker Hub'dan SILINDI, o yuzden lab hic
+      build olmuyordu. Corretto 8 dersin her parcasini koruyor: eski
+      calisma ortami, runtime'da JDK ve app-2'nin Debian/Temurin
+      tabanindan tamamen ayrisan bir taban - ustelik amd64+arm64.

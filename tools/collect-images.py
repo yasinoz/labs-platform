@@ -45,6 +45,17 @@ NON_HUB = ("ghcr.io/", "quay.io/", "gcr.io/", "k8s.gcr.io/", "registry.k8s.io/",
 
 LOCAL_ONLY = ("hackathon/", "labs/")
 
+# KASITLI BOZUK imajlar: troubleshooting lablarinin ogretmek istedigi
+# hatanin kendisi. Dogru adlar "courselabs/rng-web" ve "kiamol/ch05-pi";
+# buradaki yanlis adlari ogrencinin bulup duzeltmesi gerekiyor - iki labin
+# da solution.md'si hatayi "the image name is incorrect" diye acikliyor.
+# Docker Hub'da yoklar, yani aynalanacak bir sey de yok; listeye girerlerse
+# aynalama is akisi her calismada bunlarda hata veriyor.
+INTENTIONALLY_BROKEN = {
+    "courselabs/rng-website:21.05",   # Docker/labs/troubleshooting
+    "kiamol/ch05-pi-app",             # Kubernetes/labs/troubleshooting
+}
+
 # "docker run -p 8010:80 nginx" gibi komutlarda bayraklarin DEGERLERI
 # imaj sanilmasin diye: bu bayraklardan sonraki token atlanir.
 VALUE_FLAGS = {
@@ -53,6 +64,35 @@ VALUE_FLAGS = {
     "--mount", "--label", "-l", "--add-host", "--env-file", "--memory", "-m",
     "--cpus", "--link", "--device", "--health-cmd", "--platform", "--pull",
 }
+
+
+def strip_block_scalars(text):
+    """YAML blok skalerlerinin ICERIGINI bosaltir.
+
+    "artifacthub.io/images: |" altindaki satirlar YAML yapisi degil, duz
+    METIN. Vendor'lanmis Helm chart'larinin ArtifactHub notlarinda orada
+    "image: docker.io/bitpoke/mysql-operator:latest" gibi satirlar
+    geciyor; bu adresler hicbir zaman cekilmiyor - chart'in gercek
+    imajlari values.yaml'dan geliyor ve o ":latest" etiketlerinin Docker
+    Hub'da karsiligi yok. Regex bunlari gercek imaj sanip aynalama
+    listesine koyuyordu, dolayisiyla 4 bitpoke imaji her calismada hata
+    veriyordu.
+
+    Satirlar silinmiyor, bosaltiliyor: satir numaralari korunuyor.
+    """
+    out, skip_at = [], None
+    for line in text.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if skip_at is not None:
+            if line.strip() and indent <= skip_at:
+                skip_at = None
+            else:
+                out.append("")
+                continue
+        out.append(line)
+        if re.search(r":\s*[|>][-+0-9]*\s*$", line):
+            skip_at = indent
+    return "\n".join(out)
 
 
 def is_hub(img):
@@ -220,9 +260,13 @@ def collect():
 
             # Tum compose dosyalari (override'lar dahil) dizin bazinda
             # toplaniyor; "build:" ayri dosyada olabiliyor.
-            if name.endswith((".yml", ".yaml")) and "services:" in text:
-                compose_by_dir.setdefault(p.parent.as_posix(), []).append(
-                    compose_services(text))
+            if name.endswith((".yml", ".yaml")):
+                # Blok skaler icerigi YAML yapisi degil; imaj aramasindan
+                # once bosaltiliyor.
+                text = strip_block_scalars(text)
+                if "services:" in text:
+                    compose_by_dir.setdefault(p.parent.as_posix(), []).append(
+                        compose_services(text))
 
             if name.endswith(".md"):
                 built_anywhere |= docker_build_tags(text)
@@ -258,6 +302,8 @@ def main():
     for img in sorted(found):
         if img in built:
             skipped.append((img, "lab icinde derleniyor"))
+        elif img in INTENTIONALLY_BROKEN:
+            skipped.append((img, "kasitli bozuk - troubleshooting labi"))
         elif any(img.startswith(p) for p in LOCAL_ONLY):
             skipped.append((img, "yalnizca lab icinde uretiliyor"))
         elif not is_hub(img):
