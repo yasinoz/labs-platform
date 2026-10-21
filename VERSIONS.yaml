@@ -188,7 +188,15 @@ own_images:
 # BUNLARI GUNCELLEMEYIN. Tarama/analiz lablari bu imajlardaki gercek CVE'leri
 # bulmak uzere kurgulandi; guncellenirse lab anlamsiz hale gelir.
 intentionally_vulnerable:
-  - image: nginx:1.7
+  - image: nginx:1.14
+    was: nginx:1.7
+    note: |
+      nginx:1.7 Docker'in SEMA V1 manifestiyle yayinlanmis; Docker 29 /
+      containerd 2.1 sema v1'i tamamen kaldirdi ve imaj artik HIC
+      cekilemiyor ("not implemented: media type ... no longer supported").
+      Lab ogrencide ilk adimda patliyordu. nginx:1.14 (2018, Debian
+      stretch) sema v2 ve olculdugunde 216 CVE / 31 kritik veriyor -
+      labin "terminale sigmayacak kadar hata" vaadi aynen duruyor.
     used_by: [labs/scanning]
     reason: Trivy taramasinda yuzlerce CVE gostermek icin
   - image: alpine:3.8
