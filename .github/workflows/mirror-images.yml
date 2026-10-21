@@ -116,13 +116,17 @@ jobs:
             sort -u mirror/mirrored.tsv
           } > mirror/mirrored.txt
           rm -f mirror/mirrored.tsv
-          if git diff --quiet -- mirror/mirrored.txt; then
-            echo "degisiklik yok"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mirror/mirrored.txt
+          # Degisiklik kontrolu add'DEN SONRA ve --cached ile yapilmali:
+          # "git diff --quiet" izlenmeyen bir dosyada "fark yok" donuyor,
+          # bu yuzden dosya ilk olusturuldugunda commit atlaniyordu ve
+          # mirrored.txt hic yazilmadi.
+          if git diff --cached --quiet -- mirror/mirrored.txt; then
+            echo "degisiklik yok"
+            exit 0
+          fi
           git commit -m "mirror: basarili aynalama listesini guncelle [skip ci]"
           git push
 
