@@ -35,6 +35,27 @@ TRACKS = ("DevSecOps", "Docker", "Kubernetes", "Observability")
 LIST = ROOT / "_platform" / "mirror" / "mirrored.txt"
 EXTS = (".yml", ".yaml", ".md")
 
+# KASITLI olarak Docker Hub'da kalan dosyalar.
+#
+# Kubernetes troubleshooting labinda ogrencinin bulmasi gereken hata imaj
+# adindaki yazim hatasi: "kiamol/ch05-pi-app" -> "kiamol/ch05-pi". Bozuk
+# spec aynalanamiyor (o ad Docker Hub'da da yok), dolayisiyla yalnizca
+# cozumu aynaya cevirmek alistirmayi "yazim hatasini duzelt"ten
+# "registry'i degistir"e donusturuyor ve solution.md'nin anlattigiyla
+# ortusmuyordu. Ikisi de Hub'da kalinca alistirma tasarlandigi gibi
+# calisiyor; maliyeti ogrenci basina tek bir cekme.
+KEEP_ON_HUB = {
+    "Kubernetes/labs/troubleshooting/solution/deployment.yaml",
+}
+
+# Bu agaclardaki "image:" satirlari CEKILEN degil URETILEN imaj adlari:
+# Observability/src altindaki compose dosyalari kurs imajlarini derleyip
+# etiketliyor. Aynaya cevirmek derlemenin ciktisini ghcr.io adiyla
+# etiketlerdi - ki o ad aynada baska bir icerige isaret ediyor.
+KEEP_ON_HUB_TREES = (
+    "Observability/src/",
+)
+
 
 def load_pairs():
     if not LIST.exists():
@@ -86,6 +107,9 @@ def main():
             continue
         for p in base.rglob("*"):
             if not p.is_file() or ".git" in p.parts or p.suffix not in exts:
+                continue
+            relp = p.relative_to(ROOT).as_posix()
+            if relp in KEEP_ON_HUB or relp.startswith(KEEP_ON_HUB_TREES):
                 continue
             try:
                 s = p.read_text(encoding="utf-8")
