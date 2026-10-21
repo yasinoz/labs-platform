@@ -38,9 +38,10 @@ EXTS = (".yml", ".yaml", ".md")
 
 def load_pairs():
     if not LIST.exists():
-        sys.exit("mirror/mirrored.txt yok. Once aynalama is akisini calistir:
-"
-                 "  gh workflow run mirror-images.yml --repo yasinoz/labs-platform")
+        sys.exit(
+            "mirror/mirrored.txt yok. Once aynalama is akisini calistir:\n"
+            "  gh workflow run mirror-images.yml --repo yasinoz/labs-platform"
+        )
     pairs = []
     for line in io.open(LIST, encoding="utf-8"):
         line = line.strip()
