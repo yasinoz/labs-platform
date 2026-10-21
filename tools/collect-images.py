@@ -76,6 +76,60 @@ VALUE_FLAGS = {
 }
 
 
+def lab_scope(path):
+    """Bir yolun ait oldugu LAB koku.
+
+    Derleme tespiti dizin degil LAB bazinda yapilmali: golden-images
+    labinda altin imajlar labs/golden-images/library altinda derlenip
+    labs/golden-images/apps altinda "FROM courselabs/java:jre-26.10" ile
+    kullaniliyor. Dizin bazli karsilastirma bunu "baska yerde cekiliyor"
+    sanip Docker Hub'da hic var olmayan bir imaji aynalama listesine
+    koyuyordu.
+
+    Lab bazinda bakmak ayni labin icindeki derle-ve-kullan kalibini
+    dogru goruyor, ama Observability/src'de derlenip labs/* altinda
+    Hub'dan cekilen imajlari (prometheus, grafana, jaeger,
+    node-exporter) ayri tutmaya devam ediyor - onlar gercekten
+    aynalanmali.
+    """
+    parts = path.split("/")
+    for i, seg in enumerate(parts):
+        if seg in ("labs", "hackathon") and i + 1 < len(parts):
+            return "/".join(parts[:i + 2])
+    return "/".join(parts[:2])
+
+
+def unmirror_map():
+    """GHCR ayna adresi -> referansin Docker Hub'daki ozgun yazimi.
+
+    NEDEN: use-mirror.py lab dosyalarindaki adresleri GHCR'a cevirdikten
+    sonra bu betik ayni dosyalari tarayinca ghcr.io adreslerini "Docker
+    Hub disi registry" sayip atliyor ve liste 83 imajdan 28'e dusuyordu.
+    Daralmis listeyi itmek hem aynalamayi hem referans guncellemeyi
+    birlikte bozar: aynalama kaydi kuculur, kaydi kullanan betik geri
+    kalan imajlari taniyamaz hale gelir. Kaydi ters cevirip adresleri
+    ozgun hallerine donduruyoruz; boylece tarama, referanslarin aynaya
+    cevrilmis olup olmamasindan BAGIMSIZ ayni sonucu veriyor.
+
+    Bir GHCR adresine birden fazla ozgun yazim dusebiliyor
+    ("kiamol/ch05-pi" ile "docker.io/kiamol/ch05-pi:latest" ayni hedefe
+    gidiyor). Ikisi de ayni aynaya cevrildigi icin hangisinin secildigi
+    sonucu degistirmiyor; belirleyici olsun diye en kisasi aliniyor.
+    """
+    path = ROOT / "_platform" / "mirror" / "mirrored.txt"
+    out = {}
+    if not path.exists():
+        return out
+    for line in io.open(path, encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("#") or "\t" not in line:
+            continue
+        src, dst = (x.strip() for x in line.split("\t", 1))
+        if dst not in out or len(src) < len(out[dst]):
+            out[dst] = src
+    return out
+
+
 def strip_block_scalars(text):
     """YAML blok skalerlerinin ICERIGINI bosaltir.
 
@@ -221,7 +275,15 @@ def compose_services(text):
 
 
 def built_images(compose_by_dir):
-    """Yerelde derlenen imajlar.
+    """Yerelde derlenen imajlar -> {imaj: derlendigi dizinler}.
+
+    DIZIN BAZINDA donuyor, cunku ayni ad bir yerde derlenip baska yerde
+    Docker Hub'dan CEKILEBILIYOR. Observability/src/compose.yml dort
+    imaji (prometheus, grafana, jaeger, node-exporter) hem "image:" hem
+    "build:" ile tanimliyor; lablar ise ayni adlari 32 dosyada Hub'dan
+    cekiyor. "Bir yerde derleniyorsa her yerde atla" kurali bu dort agir
+    imaji - hiz siniri acisindan en onemlilerini - aynalama disinda
+    birakiyordu.
 
     COMPOSE OVERRIDE KALIBI: core.yml "image: rng-api:21.05" diyor ama
     "build:" ayri bir dosyada (build.yml) ve ikisi
@@ -230,8 +292,8 @@ def built_images(compose_by_dir):
     "var olmayan imaj" hatasi veriyordu. Servis adi uzerinden AYNI
     DIZINDEKI tum compose dosyalari birlestiriliyor.
     """
-    built = set()
-    for services_list in compose_by_dir.values():
+    built = {}
+    for d, services_list in compose_by_dir.items():
         imgs = {}
         builds = set()
         for services in services_list:
@@ -245,14 +307,16 @@ def built_images(compose_by_dir):
         # Servis derleniyorsa o adlarin HEPSI yerelde uretiliyor demektir;
         # yalnizca ilkini almak digerlerini aynalama listesinde birakiyordu.
         for name in builds:
-            built |= imgs.get(name, set())
+            for img in imgs.get(name, set()):
+                built.setdefault(img, set()).add(d)
     return built
 
 
 def collect():
     found = {}
-    built_anywhere = set()
+    built_in = {}        # imaj -> derlendigi dizinler (repo koku gore)
     compose_by_dir = {}
+    unmirror = unmirror_map()
 
     for t in TRACKS:
         base = ROOT / t
@@ -266,6 +330,7 @@ def collect():
             except Exception:
                 continue
             rel = p.relative_to(ROOT).as_posix()
+            reldir = p.parent.relative_to(ROOT).as_posix()
             name = p.name
 
             # Tum compose dosyalari (override'lar dahil) dizin bazinda
@@ -275,13 +340,18 @@ def collect():
                 # once bosaltiliyor.
                 text = strip_block_scalars(text)
                 if "services:" in text:
-                    compose_by_dir.setdefault(p.parent.as_posix(), []).append(
-                        compose_services(text))
+                    # Derlenen imaj adlari da ozgun hallerine donuyor,
+                    # yoksa "derleniyor" tespiti taranan adla eslesmez.
+                    compose_by_dir.setdefault(reldir, []).append({
+                        k: (unmirror.get(img, img), has_build)
+                        for k, (img, has_build) in compose_services(text).items()
+                    })
 
             if name.endswith(".md"):
-                built_anywhere |= docker_build_tags(text)
+                for tag in docker_build_tags(text):
+                    built_in.setdefault(tag, set()).add(reldir)
                 for img in docker_cmd_images(text):
-                    found.setdefault(img, set()).add(rel)
+                    found.setdefault(unmirror.get(img, img), set()).add(rel)
                 continue
 
             pat = None
@@ -297,9 +367,10 @@ def collect():
                     continue
                 if "/" not in img and ":" not in img and "@" not in img:
                     continue
-                found.setdefault(img, set()).add(rel)
-    built_anywhere |= built_images(compose_by_dir)
-    return found, built_anywhere
+                found.setdefault(unmirror.get(img, img), set()).add(rel)
+    for img, dirs in built_images(compose_by_dir).items():
+        built_in.setdefault(img, set()).update(dirs)
+    return found, built_in
 
 
 def main():
@@ -310,7 +381,13 @@ def main():
     found, built = collect()
     keep, skipped = [], []
     for img in sorted(found):
-        if img in built:
+        # Yalnizca imajin gectigi HER yer onu derleyen bir dizinse atla.
+        # Bir yerde derlenip baska yerde Hub'dan cekilen imajlar (bkz.
+        # built_images) aynalanmali: cekildikleri yer hiz sinirina tabi.
+        build_labs = {lab_scope(d) for d in built.get(img, set())}
+        pulled_elsewhere = any(
+            lab_scope(f) not in build_labs for f in found[img])
+        if build_labs and not pulled_elsewhere:
             skipped.append((img, "lab icinde derleniyor"))
         elif img in INTENTIONALLY_BROKEN:
             skipped.append((img, "kasitli bozuk - troubleshooting labi"))
