@@ -54,6 +54,13 @@ KEEP_ON_HUB = {
 # etiketlerdi - ki o ad aynada baska bir icerige isaret ediyor.
 KEEP_ON_HUB_TREES = (
     "Observability/src/",
+    # registries lablarinin KONUSU imaj adresinin kendisi: registry ve
+    # etiket varsayilanlari, kisa yazimin uzun yazima esitligi. Aynaya
+    # cevirmek dersi yok ediyordu - "kiamol/ch05-pi" ile
+    # "docker.io/kiamol/ch05-pi:latest" ayni aynaya dustugu icin
+    # "X, X'in kisa halidir" gibi anlamsiz cumleler olusuyordu.
+    "DevSecOps/labs/registries/",
+    "Docker/labs/registries/",
 )
 
 
@@ -97,7 +104,19 @@ def main():
 
     pairs = load_pairs()
     if args.revert:
-        pairs = [(b, a) for a, b in pairs]
+        # --revert TAM DEGIL, olamaz: birden fazla ozgun yazim ayni ayna
+        # adresine dusuyor ("kiamol/ch05-pi" ve
+        # "docker.io/kiamol/ch05-pi:latest" gibi), geri donerken hangisinin
+        # yazildigi bilinmiyor. En KISA yazim seciliyor - deyimsel olan o
+        # ve sonuc belirleyici oluyor. Degisikligi birebir geri almak icin
+        # git kullanilmali; bu anahtar yalnizca aynayi devre disi
+        # birakmak icin.
+        short = {}
+        for src, dst in pairs:
+            if dst not in short or len(src) < len(short[dst]):
+                short[dst] = src
+        pairs = sorted(((d, s) for d, s in short.items()),
+                       key=lambda p: len(p[0]), reverse=True)
     print("esleme sayisi: %d%s" % (len(pairs), "  (GERI ALMA)" if args.revert else ""))
 
     total, touched = 0, []
