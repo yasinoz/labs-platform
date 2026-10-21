@@ -80,7 +80,15 @@ jobs:
               echo "${src}${TAB}${dst}" >> /tmp/ok.tsv
               ok=$((ok+1)); continue
             fi
-            if crane copy "$src" "$dst" 2>/tmp/err.txt; then
+            # Bir kez tekrar deniyoruz: GHCR, cok sayida paket ayni anda
+            # ilk kez olusturulurken ara sira gecici "DENIED: requested
+            # access to the resource is denied" donduruyor. amazoncorretto:8
+            # tam bunu yasadi ve tek basina tekrar calistirildiginda
+            # sorunsuz kopyalandi. Kalici hatalar (sema v1 manifest, var
+            # olmayan etiket) tekrarda da ayni sonucu veriyor, yani tekrar
+            # onlari maskelemiyor.
+            if crane copy "$src" "$dst" 2>/tmp/err.txt \
+               || { sleep 5; crane copy "$src" "$dst" 2>/tmp/err.txt; }; then
               echo "+ kopyalandi  $src -> $dst"
               echo "${src}${TAB}${dst}" >> /tmp/ok.tsv
               ok=$((ok+1))
@@ -109,6 +117,17 @@ jobs:
 
       - name: Basarili aynalamalari repoya yaz
         run: |
+          # Filtreli calistirma (only=...) imajlarin yalnizca bir
+          # ALTKUMESINI biliyor; listeyi onunla degistirmek digerlerinin
+          # kaydini siler. "only=amazoncorretto" ile tek imaji tekrar
+          # denedigimizde tam bu oldu: 82 kayitlik liste 1 kayda dustu ve
+          # referans guncelleyen betik oburlerini gormez hale geldi.
+          # Filtreli calistirma artik kendi sonuclarini listeye EKLIYOR;
+          # yalnizca filtresiz calistirma tam gercegi temsil ettigi icin
+          # listeyi bastan yaziyor.
+          if [ -n "${{ inputs.only }}" ] && [ -f mirror/mirrored.txt ]; then
+            grep -v '^#' mirror/mirrored.txt >> mirror/mirrored.tsv || true
+          fi
           {
             echo "# Gercekten aynalanmis imajlar, sekme ayracli: kaynak<TAB>GHCR-hedefi"
             echo "# Bu dosyayi is akisi uretir; elle duzenlenmez."

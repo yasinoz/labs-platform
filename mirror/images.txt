@@ -62,7 +62,6 @@ nginx:1.21-alpine
 nginx:1.23-alpine
 nginx:1.23.0-alpine
 nginx:1.31.7-alpine
-nginx:1.7
 nginx:alpine
 openpolicyagent/gatekeeper:v3.23.1
 percona:5.7.35
