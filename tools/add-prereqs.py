@@ -75,6 +75,31 @@ WHERE_TR = ("> Bütün komutları **deponun kök dizininden** çalıştırın; b
             "yollar ona göre yazıldı.")
 
 
+HELM_EN = """**Helm** must be installed - it is a separate command line tool, it
+does not come with Docker Desktop. Check it:
+
+```
+helm version --short
+```
+
+A version number like `v3.x.x` means you are ready. If you get
+`command not found`, install it first: on Windows `winget install Helm.Helm`,
+on macOS `brew install helm`, or follow
+[helm.sh/docs/intro/install](https://helm.sh/docs/intro/install/)."""
+
+HELM_TR = """**Helm** kurulu olmali - ayri bir komut satiri araci, Docker
+Desktop ile birlikte GELMIYOR. Kontrol edin:
+
+```
+helm version --short
+```
+
+`v3.x.x` gibi bir surum numarasi goruyorsaniz hazirsiniz. `command not found`
+aliyorsaniz once kurun: Windows'ta `winget install Helm.Helm`, macOS'ta
+`brew install helm`, ya da
+[helm.sh/docs/intro/install](https://helm.sh/docs/intro/install/) adresindeki
+adimlar."""
+
 def block(requires, duration, tr):
     parts = []
     head = "## Başlamadan önce" if tr else "## Before you start"
@@ -86,14 +111,18 @@ def block(requires, duration, tr):
         needs.append(DOCKER_TR if tr else DOCKER_EN)
     if "kubernetes" in requires:
         needs.append(K8S_TR if tr else K8S_EN)
+    # Helm Docker Desktop ile GELMIYOR; 6 lab helm komutu kullaniyordu
+    # ama hicbiri requires alaninda belirtmiyordu, dolayisiyla ogrenci
+    # "command not found" ile karsilasip ne yapacagini bilemiyordu.
+    if "helm" in requires:
+        needs.append(HELM_TR if tr else HELM_EN)
     body = "\n\n".join(parts + needs + [WHERE_TR if tr else WHERE_EN])
     return "%s\n%s\n\n%s\n" % (MARK, head, body)
 
 
 def process(path, dry):
     s = io.open(path, encoding="utf-8").read()
-    if MARK in s:
-        return "zaten var"
+    existing = MARK in s
     m = re.match(r"^---\n(.*?)\n---\n", s, re.S)
     if not m:
         return "frontmatter yok"
@@ -106,11 +135,37 @@ def process(path, dry):
     tr = path.endswith(".tr.md")
 
     rest = s[m.end():]
+    built = block(requires, dur.group(1) if dur else "", tr)
+
+    if existing:
+        # Var olan blogu YENIDEN URET. Onceden yalnizca "yoksa ekle"
+        # yapiliyordu; requires alanina yeni bir sey eklendiginde
+        # (ornegin helm) blok eskisi gibi kaliyor ve ogrenci eksik
+        # on kosulu hic gormuyordu.
+        # Blogun SONU: kendi "## Baslamadan once" basligindan SONRA gelen
+        # ilk "## " basligi. Yalnizca "(?=\n## )" aramak blogun kendi
+        # basliginda duruyor ve blok silinecegine KOPYALANIYORDU.
+        pat = re.compile(
+            re.escape(MARK) + r"\n##[^\n]*\n.*?(?=\n## )", re.S
+        )
+        if not pat.search(rest):
+            return "blok siniri bulunamadi"
+        # Sondaki bos satir KORUNMALI: desen "\n## " oncesinde duruyor,
+        # yani yerine konan metin bos satir birakmazsa bir sonraki
+        # baslik alinti satirina yapisiyor ve Markdown onu baslik olarak
+        # islemeyebiliyor.
+        updated = pat.sub(lambda _: built.rstrip("\n") + "\n", rest, count=1)
+        if updated == rest:
+            return "ayni"
+        if not dry:
+            io.open(path, "w", encoding="utf-8", newline="\n").write(s[:m.end()] + updated)
+        return "guncellendi"
+
     # Ilk "## " basliginin oncesine yerlestir: giris metninden sonra,
     # ilk teknik bolumden once okunmali.
     h = re.search(r"^## ", rest, re.M)
     at = h.start() if h else len(rest)
-    new = rest[:at] + block(requires, dur.group(1) if dur else "", tr) + "\n" + rest[at:]
+    new = rest[:at] + built + "\n" + rest[at:]
     if not dry:
         io.open(path, "w", encoding="utf-8", newline="\n").write(s[:m.end()] + new)
     return "eklendi"
