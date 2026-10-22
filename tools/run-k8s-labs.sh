@@ -93,7 +93,13 @@ for lab in "${LABS[@]}"; do
 
   # BEKLEYEREK sil: NodePort'lar kume kapsamli, serbest kalmadan
   # sonraki lab ayni portu isteyip basarisiz oluyor.
-  kubectl delete namespace "$ns" --timeout=120s >/dev/null 2>&1
+  # Spec'ler KENDI namespace'lerini tanimliyorsa kaynaklar "lab-<ad>"
+  # altinda degil, o adlarda olusuyor. Yalnizca lab-<ad>'i silmek
+  # onlari geride birakiyor ve NodePort'lari tutmaya devam ediyorlar;
+  # sonraki lab "already allocated" aliyor. Spec'lerdeki namespace
+  # adlari da toplanip siliniyor.
+  own=$(grep -hA2 -E "^kind:[[:space:]]*Namespace" "${files[@]}" 2>/dev/null         | grep -E "^[[:space:]]+name:" | awk '{print $2}' | tr -d '"' | sort -u)
+  kubectl delete namespace "$ns" $own --ignore-not-found --timeout=180s >/dev/null 2>&1
   # Namespace silindikten SONRA da NodePort'un serbest kalmasi bir an
   # sürüyor; beklemeden sonraki lab ayni portu isteyip "already
   # allocated" aliyor.
