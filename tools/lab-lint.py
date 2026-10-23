@@ -224,7 +224,13 @@ def stale_map(versions):
         if isinstance(node, dict):
             was, img, tag = node.get("was"), node.get("image"), node.get("tag")
             if was and img:
-                out[str(was).strip()] = "{}:{}".format(img, tag)
+                # tag YOKSA image alani etiketi zaten tasiyor
+                # (intentionally_vulnerable kayitlari boyle yaziliyor:
+                # "image: nginx:1.14"). Yoksa oneri "nginx:1.14:None"
+                # gibi anlamsiz cikiyordu.
+                out[str(was).strip()] = (
+                    str(img) if tag in (None, "") else "{}:{}".format(img, tag)
+                )
             for v in node.values():
                 walk(v)
         elif isinstance(node, list):
@@ -237,8 +243,16 @@ def stale_map(versions):
 
 def check_stale(rep, root, refs, versions, intentional, allow=()):
     stale = stale_map(versions)
+    # "Ayni taban, farkli surum" sezgisi YALNIZCA surum matrisinden
+    # kurulur. intentionally_vulnerable kayitlari belirli lablara
+    # baglidir ("used_by") ve bilerek eskidir; onlari bu haritaya
+    # katmak baska lablarda yanlis alarm uretiyordu - labs/images
+    # icin "nginx:1.31.7-alpine yerine nginx:1.14 kullan" deniyordu,
+    # yani ogretim amacli eski imaj guncel laba onerilmis oluyordu.
+    matris = {k: v for k, v in versions.items()
+              if k != "intentionally_vulnerable"} if isinstance(versions, dict) else versions
     by_base = {}
-    for old, new in stale.items():
+    for old, new in stale_map(matris).items():
         by_base.setdefault(old.split(":")[0], new)
     for f, line, ref in refs:
         if ref in intentional or "${" in ref:
