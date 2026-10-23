@@ -44,6 +44,16 @@ allow_unpinned:
       yok. Kitabin (Learn Kubernetes in a Month of Lunches) ornek
       uygulamalari; kendi kopyamizi uretmek bu lablarin kapsami disinda.
 
+  - ref_prefix: ghcr.io/yasinoz/kiamol/
+    reason: |
+      Yukaridakinin AYNALANMIS hali. Imaj referanslari Docker Hub'in
+      anonim cekme sinirindan kacmak icin GHCR aynasina cevrilince
+      ("Imaj referanslarini GHCR aynasina cevir") onek degisti ve
+      yukaridaki 'kiamol/' kurali artik eslesmiyordu; 15 referans
+      pinlenmemis gorunmeye basladi ve CI kirmizi kaldi. Ayna da
+      yalnizca 'latest' tasiyor (GHCR etiket listesiyle dogrulandi),
+      yani pinlenecek surum hala yok.
+
 # ---------------------------------------------------------------- frontmatter
 # Ucuncu parti / uretilmis dosyalar: bizim dokumanlarimiz degil.
 skip_paths:
