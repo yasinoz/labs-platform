@@ -54,6 +54,18 @@ allow_unpinned:
       yalnizca 'latest' tasiyor (GHCR etiket listesiyle dogrulandi),
       yani pinlenecek surum hala yok.
 
+  - ref_prefix: ghcr.io/yasinoz/diamol/
+    reason: |
+      'diamol/' kuralinin AYNALANMIS hali - kiamol ile birebir ayni
+      hikaye, bir kez daha. Kubernetes reposunda tek referans var
+      (labs/affinity/specs/multi-arch/linux-or-windows.yaml,
+      ch02-hello-diamol-web) ve o repo CI'i 2026-10-21'den beri
+      yalnizca bu satir yuzunden kirmiziydi. Orijinalin Docker Hub'da
+      '2e' ve 'linux-amd64' gibi etiketleri var ama lab OS'e gore
+      zamanlama anlatiyor ve multi-arch manifest olan 'latest'e
+      ihtiyac duyuyor; mimariye ozel bir etikete pinlemek labin
+      konusunu bozar.
+
 # ---------------------------------------------------------------- frontmatter
 # Ucuncu parti / uretilmis dosyalar: bizim dokumanlarimiz degil.
 skip_paths:
